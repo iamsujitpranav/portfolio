@@ -1,0 +1,50 @@
+{
+  "name": "sujit-portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 61991",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:backend": "cd backend && ./venv/bin/python -m pytest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.113.0",
+    "@hookform/resolvers": "^5.4.0",
+    "@mdx-js/mdx": "^3.1.1",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "^3.0.4",
+    "cmdk": "^1.1.1",
+    "framer-motion": "^12.42.2",
+    "gray-matter": "^4.0.3",
+    "lenis": "^1.3.25",
+    "next": "^16.2.11",
+    "next-nprogress-bar": "^2.4.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-feather": "^2.0.10",
+    "react-hook-form": "^7.82.0",
+    "resend": "^6.18.0",
+    "three": "^0.185.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.1",
+    "@vitejs/plugin-react": "^6.0.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.11",
+    "jsdom": "^29.1.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

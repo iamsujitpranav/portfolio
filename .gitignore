@@ -1,0 +1,51 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next.js — unanchored so stray nested builds (e.g. a `next build` run
+# from public/models/) are caught too, not just the root one.
+.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env — never commit real keys
+.env
+.env.local
+.env*.local
+
+# typescript
+next-env.d.ts
+*.tsbuildinfo
+
+# pm2 logs
+/logs
+
+# python — the backend venv is 327M of machine-specific binaries; rebuild it
+# from requirements.txt + requirements-dev.txt instead of committing it.
+backend/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# test output
+/coverage
+
+# claude code — editor tooling, never part of the project
+.claude/
+
+# 3D animation sources (Mixamo .fbx). The app only ever loads the converted
+# .glb files; these stay on disk for re-export via scripts/fbx_to_anim_glb.py
+# but are 96M of the repo, so they aren't tracked.
+*.fbx
