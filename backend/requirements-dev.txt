@@ -1,0 +1,11 @@
+# Test-only dependencies. Install on top of requirements.txt:
+#   ./venv/bin/pip install -r requirements-dev.txt
+#   ./venv/bin/python -m pytest
+#
+# The suite needs no secrets, no database and no network: conftest.py forces the
+# app into its unconfigured state so a test run can never spend Claude tokens,
+# write to Postgres or send mail.
+pytest>=8.0
+# httpx backs fastapi.testclient.TestClient (already a transitive dep of the
+# runtime install, pinned here so a bare dev env still gets it).
+httpx>=0.27
