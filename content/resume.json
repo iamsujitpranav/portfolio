@@ -1,0 +1,109 @@
+{
+  "profile": {
+    "name": "Sujit Pranav Reddy",
+    "title": "Engineering Lead",
+    "yearsExperience": 11,
+    "yearsAI": 3,
+    "location": "Hyderabad, India",
+    "email": "sujitreddy0602@gmail.com",
+    "phone": "+91 91337 95317",
+    "summary": "Engineering Lead with 11+ years building scalable SaaS platforms, modernizing monoliths, designing microservices, and engineering high-availability systems. Ruby on Rails developer with 3+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP).",
+    "openTo": "Engineering leadership & AI-platform roles (remote-friendly).",
+    "education": "B.Tech, Jawaharlal Nehru Technological University, Hyderabad (2008-2012).",
+    "languages": ["English", "Telugu", "Hindi", "Kannada", "Tamil"]
+  },
+  "metrics": [
+    { "value": "11+", "label": "years engineering" },
+    { "value": "3+", "label": "years AI / ML in prod" },
+    { "value": "2×", "label": "release velocity" },
+    { "value": "40%↓", "label": "incident response time" }
+  ],
+  "experience": [
+    {
+      "role": "Engineering Head",
+      "company": "Arccaa Analysis & IT Solutions",
+      "period": "2024 - present",
+      "now": true,
+      "summary": "Designed an AI-powered résumé-parsing & candidate-intelligence platform - NLP skill extraction, ranking, and semantic matching. Built LLM recruitment workflows with RAG, vector search, prompt engineering, and structured outputs, plus agentic dev pipelines with Claude MCP and Codex MCP, and document pipelines with OCR, embeddings, and semantic search.",
+      "stack": ["Python", "FastAPI", "pgvector", "Anthropic Claude", "MCP", "RAG", "React"]
+    },
+    {
+      "role": "Lead Architect",
+      "company": "Aequor Information Technologies / Virtusa",
+      "period": "Nov 2024 - Apr 2025",
+      "summary": "Led development on Storable Edge, an all-in-one self-storage operations platform. Drove sprint planning, effort estimation, and roadmap alignment; performed code reviews, pair programming, and mentoring. Contributed to microservice integrations, API design, and performance tuning; used Claude MCP for agentic development and improved deployments with Docker, GitHub Actions, and Jenkins.",
+      "stack": ["Rails 7", "Ruby 3.2", "GraphQL", "Sidekiq", "AWS", "Docker", "Grafana"]
+    },
+    {
+      "role": "Senior Architect",
+      "company": "Emami Frankross",
+      "period": "Apr 2023 - May 2024",
+      "summary": "Led backend modernization of a large-scale e-commerce monolith powering thousands of daily transactions. Built a DevOps stack (AWS + Docker + GitHub Actions), raised release velocity 2x, and cut incident response >40% with Grafana + New Relic. Designed a PyTorch + FastAPI recommendation engine on user/product embeddings, integrated with the Rails platform, and improved search relevance with Algolia.",
+      "stack": ["Rails 6.1", "PyTorch", "FastAPI", "Kubernetes", "Algolia", "New Relic"]
+    },
+    {
+      "role": "Senior Software Engineer",
+      "company": "Inmar Intelligence - Collective Bias",
+      "period": "Feb 2022 - Sep 2022",
+      "summary": "Designed predictive-analytics models with Python and TensorFlow to estimate influencer engagement, reach, and campaign ROI. Built budget-optimization algorithms on historical + costing data, contributed to architecture and sprint planning, and streamlined microservice deployment with existing Kubernetes pods and Docker images.",
+      "stack": ["Rails 5.2", "TensorFlow", "Python", "Kubernetes", "GraphQL"]
+    },
+    {
+      "role": "Senior Associate Consultant",
+      "company": "Global Logic - iCIMS",
+      "period": "May 2021 - Feb 2022",
+      "summary": "Designed architecture for new enterprise HR features used by high-volume global clients. Led sprint planning across cross-functional teams and improved CI/CD via Jenkins + AWS, reducing deployment failures. Supported multi-client delivery for Workday, SuccessFactors, Marriott, and J&J.",
+      "stack": ["Ruby 3.0", "MySQL", "Redis", "Sidekiq", "AWS", "Kubernetes", "Jenkins"]
+    },
+    {
+      "role": "Senior RoR Developer / Associate Tech Lead",
+      "company": "SunRay Construction Solutions",
+      "period": "Oct 2019 - Apr 2021",
+      "summary": "Designed architecture for critical new features, optimized queries, and improved search with ElasticSearch & Kibana. Raised overall performance >10% and built a complete DevOps pipeline (Docker + GitHub Actions + AWS) enabling zero-downtime deployments.",
+      "stack": ["Rails 5.0", "React", "ElasticSearch", "Kibana", "AWS", "MySQL"]
+    },
+    {
+      "role": "Project Lead / Application Architect",
+      "company": "Denken Solutions - Auto Refund Claims",
+      "period": "May 2018 - Sep 2019",
+      "summary": "Architected and developed the platform end-to-end - design, DB schema, APIs, auth, workflows. Built CI/CD with Jenkins on AWS, introduced Docker-based environments, and implemented CloudWatch-driven alerting to improve uptime.",
+      "stack": ["Rails 5.2", "PostgreSQL", "Redis", "ElasticSearch", "AWS", "Docker", "Jenkins"]
+    },
+    {
+      "role": "Software Engineer",
+      "company": "LotVue India (LotVue LLC, USA)",
+      "period": "Jun 2017 - Apr 2018",
+      "summary": "Restructured the SaaS multi-tenant architecture, cutting maintenance costs 80% by consolidating multiple codebases into a unified Rails Engines platform. Built CI/CD with Jenkins + Docker and integrated New Relic APM for production monitoring.",
+      "stack": ["Rails 5.0", "MySQL", "Rails Engines", "AngularJS", "AWS", "New Relic"]
+    },
+    {
+      "role": "Software Engineer",
+      "company": "Emami Frankross (earlier tenure)",
+      "period": "Apr 2016 - May 2017",
+      "summary": "Built and maintained the backend for a high-traffic e-commerce application; optimized the product catalog and API performance for Android/iOS mobile apps.",
+      "stack": ["Rails 4.0", "Ruby 2.0", "AWS", "Redis", "Sidekiq", "PostgreSQL"]
+    },
+    {
+      "role": "Ruby on Rails Developer",
+      "company": "Carveniche Technologies",
+      "period": "Jun 2015 - Mar 2016",
+      "summary": "Installed and configured BigBlueButton for live audio/video, screen share, and virtual classrooms; upgraded legacy Rails apps from 3.2 to 5.2 and integrated conferencing APIs.",
+      "stack": ["Rails 3.2->5.2", "BigBlueButton", "MySQL", "Capistrano", "AWS"]
+    },
+    {
+      "role": "Software Engineer",
+      "company": "Kreatio Software Pvt. Ltd",
+      "period": "Mar 2014 - Jun 2015",
+      "summary": "Worked on Ruby on Rails applications - feature development, debugging, and enhancing CMS-based products.",
+      "stack": ["Ruby on Rails", "CMS"]
+    }
+  ],
+  "skillGroups": [
+    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["FastAPI", "GraphQL", "REST", "Microservices", "Hotwire", "React", "RSpec"] },
+    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP"], "skills": ["RAG", "LangChain", "PyTorch", "TensorFlow", "OpenAI API", "Embeddings", "Semantic search"] },
+    { "title": "Cloud & DevOps", "star": ["AWS"], "skills": ["Kubernetes", "Docker", "GitHub Actions", "Jenkins", "Nginx", "Capistrano"] },
+    { "title": "Data & Storage", "star": ["PostgreSQL"], "skills": ["pgvector", "MySQL", "Redis", "ElasticSearch", "Algolia"] },
+    { "title": "Observability", "star": [], "skills": ["Grafana", "Kibana", "New Relic", "CloudWatch"] },
+    { "title": "Agentic tooling", "star": ["Claude MCP"], "skills": ["Codex MCP", "Cursor", "Windsurf", "GitHub Copilot"] }
+  ]
+}

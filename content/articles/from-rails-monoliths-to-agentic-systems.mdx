@@ -1,0 +1,39 @@
+---
+title: "From Rails Monoliths to Agentic Systems"
+description: "Eleven years of backend engineering, and why the interesting work is now at the reasoning layer."
+date: "2026-06-18"
+tags: ["Ruby on Rails", "LLMs", "MCP", "Architecture"]
+readingTime: "6 min"
+---
+
+For most of my career the hard problems were about **scale and structure**: turning
+a Rails monolith into resilient microservices, keeping a high-traffic e-commerce
+platform up during a sale, shaving 40% off incident-response time with the right
+observability stack.
+
+That work still matters. But over the last three years the frontier moved. The
+hardest, most interesting layer is now making software that **reasons** —
+recommendation engines, semantic search, and agentic developer workflows that
+actually earn their place in production.
+
+## What carried over
+
+The instincts from a decade of backend work transfer directly:
+
+- **Boundaries.** An LLM integration is a service boundary like any other — it
+  needs timeouts, retries, graceful degradation, and a clear contract.
+- **Observability.** You cannot ship a RAG pipeline you can't see. The same
+  Grafana + New Relic discipline applies to token spend and latency.
+- **Cost as a first-class constraint.** Prompt caching and model selection are
+  the new query optimization.
+
+## What was new
+
+Structured outputs, tool use, and the Model Context Protocol turned "call the
+model" into "compose an agent." At Arccaa I leaned on Claude MCP and Codex MCP for
+repository analysis, code review, and documentation — the same way I'd once leaned
+on Sidekiq for background work.
+
+The lesson: treat AI as an **engineering discipline**, not a demo. Ship it with
+tests, review, and rollback, and it becomes just another dependable part of the
+system.

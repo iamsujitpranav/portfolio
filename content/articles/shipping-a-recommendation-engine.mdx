@@ -1,0 +1,35 @@
+---
+title: "Shipping a Recommendation Engine into a Live Rails App"
+description: "How a PyTorch + FastAPI embedding service slotted into an e-commerce monolith without a rewrite."
+date: "2026-05-02"
+tags: ["PyTorch", "FastAPI", "Recommendations", "Rails"]
+readingTime: "5 min"
+---
+
+At Emami Frankross the goal was concrete: better product recommendations on a
+Rails e-commerce platform serving thousands of daily transactions — without
+pausing feature work to rewrite the monolith.
+
+## The shape of the solution
+
+Rather than force ML into Rails, I gave it its own home:
+
+1. **A FastAPI service** exposing recommendation endpoints.
+2. **PyTorch embedding models** trained on browsing, cart, purchase, and
+   engagement data.
+3. **A thin client in Rails** that called the service and cached results in Redis.
+
+The monolith didn't need to know how embeddings worked — only how to ask a
+question and render an answer.
+
+## Why this beat a rewrite
+
+- **Independent deploys.** The model could iterate on its own cadence.
+- **Blast radius.** A bad model version degraded to a sane fallback, not a
+  checkout outage.
+- **Reuse.** The same embeddings later powered search relevance work alongside
+  Algolia.
+
+Release velocity doubled over the same period, and search relevance measurably
+improved — proof that you can bolt intelligence onto a mature system if you
+respect its boundaries.
