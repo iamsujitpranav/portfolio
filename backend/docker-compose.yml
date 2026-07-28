@@ -1,0 +1,37 @@
+# Dedicated PostgreSQL (with pgvector) for the portfolio backend.
+#
+# Isolated from every other project on this machine: its own container, its own
+# named volume, and a localhost-only port (5435) so nothing else collides with
+# it. pgvector is baked in, so init_db()'s `CREATE EXTENSION vector` works and
+# the résumé-chat RAG feature can use it later.
+#
+#   Start:   docker compose --env-file .env -f docker-compose.yml up -d --wait
+#   Stop:    docker compose -f docker-compose.yml down          (data survives)
+#   Wipe:    docker compose -f docker-compose.yml down -v       (deletes the volume)
+#
+# POSTGRES_PASSWORD is read from backend/.env (gitignored), so no secret lives
+# in this committed file.
+name: sujit-portfolio
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: portfolio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: portfolio
+      POSTGRES_DB: portfolio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in backend/.env}
+    ports:
+      # Bind to loopback only — the DB is never exposed off this machine.
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - portfolio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfolio -d portfolio"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  portfolio_pgdata:
