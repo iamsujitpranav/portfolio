@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { walkHeight } from "@/lib/journey/terrain";
+import { STOP_SIGN_OFFSETS } from "@/lib/journey/sections";
+import { nodeById } from "@/lib/journey/graph";
 import { game } from "@/lib/journey/game";
 import { warp } from "@/lib/journey/warp";
 import type { Nav } from "./Avatar";
@@ -14,6 +16,8 @@ export type DisplayFocus = { id: string; x: number; y: number; z: number; fx?: n
 // Never let the camera dip below the ground (that's what let you "see under the
 // snow"): keep it at least this far above the terrain wherever it hovers.
 const GROUND_CLEARANCE = 1.2;
+const ARCHITECT_MIN_DISTANCE = 6.5;
+const ARCHITECT_MAX_DISTANCE = 10;
 
 // Close third-person framing. The camera rides just behind and slightly off the
 // runner's shoulder at head height, so the avatar fills the frame and its face
@@ -36,7 +40,7 @@ export default function CameraRig({
   edgeCurves: Map<string, THREE.CatmullRomCurve3>;
   nav: Nav;
 }) {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controls = useRef<any>(null);
   const desired = useMemo(() => new THREE.Vector3(), []);
@@ -46,7 +50,28 @@ export default function CameraRig({
   const seenWarp = useRef(warp.seq);
   const lockedTarget = useMemo(() => new THREE.Vector3(), []);
   const lockedPosition = useMemo(() => new THREE.Vector3(), []);
+  const pointerOrbit = useRef(false);
   const lockTarget = useRef(false);
+  const architectBoard = useMemo(() => {
+    const node = nodeById("cross");
+    const [dx, dz] = STOP_SIGN_OFFSETS.start;
+    const x = (node?.x ?? -2) + dx + 0.27;
+    const z = (node?.z ?? -72) + dz;
+    return new THREE.Vector3(x, walkHeight(x, z) + 2.3, z);
+  }, []);
+
+  useEffect(() => {
+    const beginPointerOrbit = () => { pointerOrbit.current = true; };
+    const endPointerOrbit = () => { pointerOrbit.current = false; };
+    gl.domElement.addEventListener("pointerdown", beginPointerOrbit);
+    gl.domElement.addEventListener("pointerup", endPointerOrbit);
+    gl.domElement.addEventListener("pointercancel", endPointerOrbit);
+    return () => {
+      gl.domElement.removeEventListener("pointerdown", beginPointerOrbit);
+      gl.domElement.removeEventListener("pointerup", endPointerOrbit);
+      gl.domElement.removeEventListener("pointercancel", endPointerOrbit);
+    };
+  }, [gl]);
 
   useFrame((_, delta) => {
     // The avatar's spot on the path graph: its current edge's curve at tAB.
@@ -59,22 +84,36 @@ export default function CameraRig({
     if (!ctrl) return;
 
     if (!init.current) {
-      // OPENING SHOT: the avatar spawns on the TOWN SQUARE — the five-way
-      // Crossroads. Open from the north-west looking south-east, straight down
-      // the junction→fountain axis, so the frame reads the whole square past
-      // the avatar: the grand frozen fountain and its arc of social boards in
-      // the south-east wedge, the flanking lamps, and the summit road running
-      // off behind. (The square's furniture sits at bisector ≈318° from the
-      // node — square_audit.ts — so a NW camera stacks all of it in view.)
-      camera.position.set(p.x - 6.5, p.y + EYE_Y + 1.7, p.z + 7.5);
-      ctrl.target.copy(desired);
+      // OPENING SHOT: face The Architect board squarely from its front. The
+      // board's face points along +Z, so placing the camera on that same normal
+      // keeps both vertical edges parallel and prevents the shot drifting left.
+      // Eight metres makes the board fill the frame while keeping its edges in
+      // view on the wide canvas.
+      camera.position.set(architectBoard.x, architectBoard.y, architectBoard.z + 8);
+      lockedPosition.copy(camera.position);
+      lockedTarget.copy(architectBoard);
+      ctrl.target.copy(lockedTarget);
       ctrl.update();
+      camera.lookAt(lockedTarget);
+      lockTarget.current = true;
       init.current = true;
       return;
     }
 
     if (seenWarp.current !== warp.seq) {
       seenWarp.current = warp.seq;
+      if (warp.pose === "architect") {
+        camera.position.set(architectBoard.x, architectBoard.y, architectBoard.z + 8);
+        lockedPosition.copy(camera.position);
+        lockedTarget.copy(architectBoard);
+        ctrl.target.copy(lockedTarget);
+        ctrl.update();
+        camera.lookAt(lockedTarget);
+        lockTarget.current = true;
+        init.current = true;
+        return;
+      }
+
       const warpCurve = edgeCurves.get(warp.destEdgeId) ?? ec;
       const warpPoint = warpCurve.getPointAt(THREE.MathUtils.clamp(warp.destTAB, 0, 1));
       fwd.set(warp.lookX - warpPoint.x, 0, warp.lookZ - warpPoint.z);
@@ -99,6 +138,9 @@ export default function CameraRig({
     // stopped, but handing the camera back to free orbit mid-move would drop
     // the shot exactly when there's something to watch.
     if (nav.moving || game.move?.kind === "kick") {
+      // Release the static opening/arrival composition as soon as the visitor
+      // starts moving, so the chase camera can take over normally.
+      lockTarget.current = false;
       // Chase cam: swing just behind the avatar's travel direction and hold
       // there, close and at head height, so the character carries the frame.
       const tan = ec.getTangentAt(tt);
@@ -125,8 +167,21 @@ export default function CameraRig({
     } else {
       // Idle: preserve the exact teleport frame until walking or orbiting resumes.
       if (lockTarget.current) {
-        ctrl.target.copy(lockedTarget);
-        camera.position.copy(lockedPosition);
+        // OrbitControls emits the same start event for wheel zoom and pointer
+        // orbit. Only a real pointer gesture releases the composition; wheel
+        // zoom keeps the board centered. Preserve its depth but restore the
+        // authored x/y pose before OrbitControls updates again.
+        if (pointerOrbit.current) {
+          lockTarget.current = false;
+        } else {
+          lockedPosition.z = lockedTarget.z + THREE.MathUtils.clamp(
+            camera.position.z - lockedTarget.z,
+            ARCHITECT_MIN_DISTANCE,
+            ARCHITECT_MAX_DISTANCE,
+          );
+          ctrl.target.copy(lockedTarget);
+          camera.position.copy(lockedPosition);
+        }
       } else ctrl.target.lerp(desired, 0.06);
     }
     ctrl.update();
@@ -162,7 +217,6 @@ export default function CameraRig({
       maxDistance={45}
       minPolarAngle={0.15}
       maxPolarAngle={1.4}
-      onStart={() => { lockTarget.current = false; }}
     />
   );
 }
