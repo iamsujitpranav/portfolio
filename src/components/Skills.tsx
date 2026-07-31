@@ -3,8 +3,11 @@
 import Reveal, { RevealGroup, RevealItem } from "./Reveal";
 import TiltCard from "./TiltCard";
 import { skillGroups } from "@content/resume";
+import { useRecruiterMode } from "./RecruiterMode";
 
 export default function Skills() {
+  const { enabled: recruiterMode } = useRecruiterMode();
+
   return (
     <section id="skills">
       <div className="wrap">
@@ -13,9 +16,9 @@ export default function Skills() {
         </Reveal>
         <Reveal delay={0.05} className="sectionhead">
           <h2>
-            Tools I reach for, <span className="accentword">by default</span>.
+            {recruiterMode ? <>Core stack for <span className="accentword">high-leverage teams</span>.</> : <>Tools I reach for, <span className="accentword">by default</span>.</>}
           </h2>
-          <p className="sub">Starred items are where I go deepest.</p>
+          <p className="sub">{recruiterMode ? "The capabilities most relevant to engineering leadership and AI platform roles." : "Starred items are where I go deepest."}</p>
         </Reveal>
 
         <RevealGroup className="matrix" stagger={0.06}>
@@ -31,7 +34,7 @@ export default function Skills() {
                       ★ {s}
                     </li>
                   ))}
-                  {group.skills.map((s) => (
+                  {group.skills.slice(0, recruiterMode ? 5 : undefined).map((s) => (
                     <li key={s}>{s}</li>
                   ))}
                 </ul>

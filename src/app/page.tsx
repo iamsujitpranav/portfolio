@@ -3,6 +3,7 @@ import Marquee from "@/components/Marquee";
 import Thesis from "@/components/Thesis";
 import Experience from "@/components/Experience";
 import Skills from "@/components/Skills";
+import PersonalDetails from "@/components/PersonalDetails";
 import AskResume from "@/components/AskResume";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
@@ -23,6 +24,7 @@ export default function HomePage() {
       <Thesis />
       <Experience />
       <Skills />
+      <PersonalDetails />
       <AskResume />
       <Contact />
       <Footer />

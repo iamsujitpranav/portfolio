@@ -1,31 +1,70 @@
 {
   "profile": {
     "name": "Sujit Pranav Reddy",
-    "title": "Engineering Lead",
-    "yearsExperience": 11,
+    "title": "Engineering Head",
+    "yearsExperience": 12,
     "yearsAI": 3,
     "location": "Hyderabad, India",
     "email": "sujitreddy0602@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/sujitpranav/",
+    "github": "https://github.com/iamsujitpranav/",
     "phone": "+91 91337 95317",
-    "summary": "Engineering Lead with 11+ years building scalable SaaS platforms, modernizing monoliths, designing microservices, and engineering high-availability systems. Ruby on Rails developer with 3+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP).",
+    "summary": "Engineering Head with 12+ years building scalable SaaS platforms, modernizing large-scale monoliths, integrating microservices, and engineering high-availability systems. Ruby on Rails developer with 3+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP). Track record leading architecture, sprint planning, code review, and mentoring across cross-functional teams, with DevOps delivery on AWS, Docker, Kubernetes, and CI/CD pipelines.",
     "openTo": "Engineering leadership & AI-platform roles (remote-friendly).",
     "education": "B.Tech, Jawaharlal Nehru Technological University, Hyderabad (2008-2012).",
-    "languages": ["English", "Telugu", "Hindi", "Kannada", "Tamil"]
+    "languages": ["English", "Telugu", "Hindi", "Kannada", "Tamil"],
+    "dateOfBirth": "6th February 1991",
+    "hobbies": ["Scuba Diving", "Long Drives", "Travel", "Cricket", "Badminton"],
+    "maritalStatus": "Married"
   },
   "metrics": [
-    { "value": "11+", "label": "years engineering" },
+    { "value": "12+", "label": "years engineering" },
     { "value": "3+", "label": "years AI / ML in prod" },
     { "value": "2×", "label": "release velocity" },
-    { "value": "40%↓", "label": "incident response time" }
+    { "value": "40%↓", "label": "incident response time" },
+    { "value": "80%↓", "label": "maintenance costs" },
+    { "value": "4+", "label": "years as Engineering Lead" }
   ],
   "experience": [
     {
       "role": "Engineering Head",
       "company": "Arccaa Analysis & IT Solutions",
-      "period": "2024 - present",
+      "period": "May 2026 - present",
       "now": true,
-      "summary": "Designed an AI-powered résumé-parsing & candidate-intelligence platform - NLP skill extraction, ranking, and semantic matching. Built LLM recruitment workflows with RAG, vector search, prompt engineering, and structured outputs, plus agentic dev pipelines with Claude MCP and Codex MCP, and document pipelines with OCR, embeddings, and semantic search.",
-      "stack": ["Python", "FastAPI", "pgvector", "Anthropic Claude", "MCP", "RAG", "React"]
+      "summary": "Independent, part-time engagement. Leading engineering across three products - the AI recruitment platform, the AI services layer behind it, and the company's public web presence - architecture, delivery, and code review throughout. Works Claude MCP and Codex MCP into the development loop as repository-scale assistants, validating their output with scripts, tests, builds, and deployment checks.",
+      "projects": [
+        {
+          "name": "AI résumé parsing & candidate intelligence",
+          "summary": "Designed an AI-powered résumé-parsing & candidate-intelligence platform - NLP skill extraction, ranking, and semantic matching. Built LLM recruitment workflows with RAG, vector search, prompt engineering, and structured outputs, plus document pipelines with OCR, embeddings, and semantic search."
+        },
+        {
+          "name": "ARCCAA AI Engine - AI services platform",
+          "summary": "Built from scratch as a modular FastAPI platform for résumé parsing, job-description generation, skill suggestions, embeddings, similarity scoring, and caching - deployed as its own container, independent of Rails. Routes local Ollama models and OpenAI-compatible APIs from one place, defaulting to local embeddings so vectors stay compatible with the Rails pgvector schema, with selected generation tasks sent to hosted models where quality justifies it. A centralized prompt registry holds per-task instructions, JSON schemas, token limits, temperature, and model config, with résumé rules that keep employers, clients, and technologies distinct, separate job titles from responsibilities, preserve every meaningful responsibility, and forbid guessing. Hardened against unreliable model output with code-fence stripping, response normalization, heuristic fallbacks, versioned Redis and in-memory cache namespaces, latency logging, PDF/DOC/DOCX extraction, and parser tests."
+        },
+        {
+          "name": "AAITS website & CMS",
+          "summary": "Built the company website and CMS from scratch on Next.js 16, React 19, TypeScript, Payload CMS 3, PostgreSQL, Tailwind, and shadcn/ui behind Docker and Caddy - dynamic pages, reusable content blocks, blog posts, categories and tags, media, navigation, forms and submissions, redirects, SEO metadata, previews, and search. Replaced the legacy WordPress site without losing it: archived the original HTML, media, taxonomies, metadata, and redirects, then wrote idempotent importers that convert content to Lexical rich text, preserve internal links, match media, rebuild taxonomies and redirects, and refuse duplicates - public content, URLs, and SEO value carried over intact. Added admin TOTP/2FA, search indexing, cache invalidation, automated tests, and deployment workflows."
+        }
+      ],
+      "stack": ["Python", "FastAPI", "Next.js 16", "Payload CMS", "pgvector", "Anthropic Claude", "MCP", "RAG", "Ollama", "Redis", "PostgreSQL", "Docker"]
+    },
+    {
+      "role": "IT Head Consultant",
+      "company": "Aron Fx",
+      "period": "Apr 2026 - present",
+      "now": true,
+      "summary": "Independent, part-time engagement. Two products built end to end, schema through UI.",
+      "projects": [
+        {
+          "name": "AronFX VFX Tracker",
+          "summary": "Built from scratch - an operations and billing platform for VFX production spanning clients, projects, bids, shots, work tracking, vendors, invoices, payments, and multi-currency project metrics, modelled around real VFX work such as roto, paint, camera and object tracking, and compositing. Designed a permission-key authorization model enforced in the backend and mirrored in the UI to drive page, column, and field visibility, alongside JWT refresh tokens, RBAC, TOTP, login-activity tracking, rate limiting, encryption, and audit logging; added invoice PDF generation and Excel import for legacy workbooks."
+        },
+        {
+          "name": "Magrofy Social Engine",
+          "summary": "A multi-brand agentic content platform on Claude - Scout, Strategist, Writer, Guardian, Repurposer, and Publisher stages with structured JSON outputs, risk tiering, human approval gates, encrypted credentials, idempotent scheduled runs, and a global kill switch."
+        }
+      ],
+      "stack": ["FastAPI", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]
     },
     {
       "role": "Lead Architect",
@@ -99,10 +138,11 @@
     }
   ],
   "skillGroups": [
-    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["FastAPI", "GraphQL", "REST", "Microservices", "Hotwire", "React", "RSpec"] },
-    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP"], "skills": ["RAG", "LangChain", "PyTorch", "TensorFlow", "OpenAI API", "Embeddings", "Semantic search"] },
+    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
+    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP"], "skills": ["RAG", "LangChain", "PyTorch", "TensorFlow", "OpenAI API", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Semantic search"] },
     { "title": "Cloud & DevOps", "star": ["AWS"], "skills": ["Kubernetes", "Docker", "GitHub Actions", "Jenkins", "Nginx", "Capistrano"] },
     { "title": "Data & Storage", "star": ["PostgreSQL"], "skills": ["pgvector", "MySQL", "Redis", "ElasticSearch", "Algolia"] },
+    { "title": "Security & Auth", "star": ["RBAC"], "skills": ["JWT", "Refresh tokens", "TOTP 2FA", "Rate limiting", "Encryption", "Audit logging"] },
     { "title": "Observability", "star": [], "skills": ["Grafana", "Kibana", "New Relic", "CloudWatch"] },
     { "title": "Agentic tooling", "star": ["Claude MCP"], "skills": ["Codex MCP", "Cursor", "Windsurf", "GitHub Copilot"] }
   ]

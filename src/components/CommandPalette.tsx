@@ -5,12 +5,14 @@ import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { toggleTheme } from "@/lib/theme";
 import { profile } from "@content/resume";
+import { useRecruiterMode } from "./RecruiterMode";
 
 type Item = { ic: string; label: string; hint: string; run: () => void };
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const { toggle: toggleRecruiterMode } = useRecruiterMode();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,11 +40,13 @@ export default function CommandPalette() {
     { ic: "01", label: "Intro", hint: "section", run: () => go("#top") },
     { ic: "02", label: "Work / Experience", hint: "section", run: () => go("#work") },
     { ic: "03", label: "The Stack", hint: "section", run: () => go("#skills") },
-    { ic: "04", label: "Ask my résumé (AI chat)", hint: "section", run: () => go("#ask") },
-    { ic: "05", label: "Contact", hint: "section", run: () => go("#contact") },
+    { ic: "04", label: "Personal details", hint: "section", run: () => go("#personal") },
+    { ic: "05", label: "Ask my résumé (AI chat)", hint: "section", run: () => go("#ask") },
+    { ic: "06", label: "Contact", hint: "section", run: () => go("#contact") },
     { ic: "✎", label: "Articles / Blog", hint: "page", run: () => { setOpen(false); router.push("/blog"); } },
     { ic: "@", label: `Email — ${profile.email}`, hint: "mailto", run: () => { window.location.href = `mailto:${profile.email}`; } },
     { ic: "☎", label: `Call — ${profile.phone}`, hint: "tel", run: () => { window.location.href = `tel:${profile.phone.replace(/\s/g, "")}`; } },
+    { ic: "◉", label: "Toggle recruiter mode", hint: "view", run: () => { toggleRecruiterMode(); setOpen(false); } },
     { ic: "◑", label: "Toggle light / dark theme", hint: "theme", run: () => { toggleTheme(); setOpen(false); } },
   ];
 

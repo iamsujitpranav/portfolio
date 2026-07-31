@@ -21,7 +21,7 @@ Optional extra assets are documented in `JOURNEY_ASSETS.md`.
         ┌──────────────┴───────────────┐
         │ /                            │ /api/*
         ▼                              ▼
-  Next.js (Node, :3000)         FastAPI (uvicorn/gunicorn, :8000)
+  Next.js (Node, :61991)         FastAPI (uvicorn/gunicorn, :8000)
   React · three.js/R3F ·        ├─ /api/chat    → Claude (Anthropic Python SDK)
   Framer Motion · Lenis ·       │                 + pgvector RAG retrieval
   cmdk · MDX blog               ├─ /api/contact → PostgreSQL lead + Resend email
@@ -55,6 +55,42 @@ deploy/nginx.conf             Nginx site config
 > GLBs — when adding models from a new kit, copy its `Textures/` folder too or
 > the meshes render untextured.
 
+## Docker (full stack)
+
+The root Compose stack runs Nginx, Next.js, FastAPI, and PostgreSQL with pgvector.
+Only the Nginx gateway is published; the application services and database stay
+on private Docker networks.
+
+```bash
+cp .env.docker.example .env.docker
+# Replace the database password and add any API, SMTP, admin, or analytics keys.
+docker compose --env-file .env.docker up --build -d --wait
+```
+
+Open `http://localhost:61991`. Check the stack or follow its logs with:
+
+```bash
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f
+curl http://localhost:61991/api/health
+```
+
+The site and contact persistence work without third-party keys. Claude chat, SMTP
+delivery, admin access, and semantic RAG enable themselves when their corresponding
+variables are configured. After setting a Voyage or OpenAI embedding key, seed or
+refresh the vector index with:
+
+```bash
+docker compose --env-file .env.docker --profile tools run --rm ingest
+```
+
+Stop the stack with `docker compose --env-file .env.docker down`. PostgreSQL data
+survives in the named volume; add `-v` only when you intentionally want to erase it.
+For production, set `NEXT_PUBLIC_SITE_URL`, use a strong URL-safe database password,
+and terminate TLS at the hosting load balancer or a certificate-aware proxy in front
+of the gateway. Public `NEXT_PUBLIC_*` values are baked into the frontend image, so
+rebuild it after changing them.
+
 ## Local development
 
 ### 1. Frontend
@@ -63,8 +99,7 @@ npm install
 cp .env.example .env.local        # set NEXT_PUBLIC_SITE_URL, etc.
 npm run dev                       # http://localhost:61991
 ```
-Dev runs on **port 61991** (3000 is used by another local project; prod still
-serves on 3000 — see `package.json` scripts). `/api/*` is proxied to the
+Development and production both run on **port 61991**. `/api/*` is proxied to the
 FastAPI backend (see `next.config.mjs` → `BACKEND_URL`, default
 `http://127.0.0.1:8000`; override with `BACKEND_URL=... npm run dev` if your
 backend runs elsewhere).

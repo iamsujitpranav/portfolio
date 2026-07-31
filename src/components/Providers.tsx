@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
 import { AppProgressBar as ProgressBar } from "next-nprogress-bar";
+import { RecruiterModeProvider } from "./RecruiterMode";
 
 /**
  * Client providers:
@@ -49,7 +50,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <>
+    <RecruiterModeProvider>
       {children}
       <ProgressBar
         height="2px"
@@ -57,6 +58,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         options={{ showSpinner: false }}
         shallowRouting
       />
-    </>
+    </RecruiterModeProvider>
   );
 }

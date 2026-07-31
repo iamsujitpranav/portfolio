@@ -7,6 +7,7 @@ import { z } from "zod";
 import Reveal from "./Reveal";
 import Magnetic from "./Magnetic";
 import { profile } from "@content/resume";
+import { SocialLinks } from "./journey/SocialTrail";
 
 const schema = z.object({
   name: z.string().min(2, "Please enter your name"),
@@ -57,7 +58,7 @@ export default function Contact() {
     <section className="contact" id="contact">
       <div className="wrap">
         <Reveal>
-          <div className="eyebrow">05 · contact</div>
+          <div className="eyebrow">06 · contact</div>
         </Reveal>
 
         <div className="contactgrid">
@@ -84,6 +85,12 @@ export default function Contact() {
                     {profile.phone}
                   </a>
                 </Magnetic>
+              </div>
+            </Reveal>
+            <Reveal delay={0.15}>
+              <div className="contactSocial">
+                <div className="eyebrow">Find me online</div>
+                <SocialLinks />
               </div>
             </Reveal>
           </div>

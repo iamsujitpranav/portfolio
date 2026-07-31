@@ -4,8 +4,11 @@ import { useRef } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import Reveal from "./Reveal";
 import { experience } from "@content/resume";
+import { useRecruiterMode } from "./RecruiterMode";
 
 export default function Experience() {
+  const { enabled: recruiterMode } = useRecruiterMode();
+  const visibleExperience = recruiterMode ? experience.slice(0, 4) : experience;
   const wrapRef = useRef<HTMLDivElement>(null);
   // The accent rail fills as this block scrolls through the viewport.
   const { scrollYProgress } = useScroll({
@@ -18,15 +21,14 @@ export default function Experience() {
     <section id="work">
       <div className="wrap">
         <Reveal>
-          <div className="eyebrow">02 · selected experience</div>
+          <div className="eyebrow">02 · {recruiterMode ? "leadership experience" : "selected experience"}</div>
         </Reveal>
         <Reveal delay={0.05} className="sectionhead">
           <h2>
-            Eleven years, one <span className="accentword">throughline</span>.
+            {recruiterMode ? <>Leadership, architecture, and <span className="accentword">AI delivery</span>.</> : <>Twelve years, one <span className="accentword">throughline</span>.</>}
           </h2>
           <p className="sub">
-            Rails at the core the whole way — and, increasingly, AI systems built to earn their keep in
-            production.
+            {recruiterMode ? "The shortest route through the most relevant leadership and platform work." : "Rails at the core the whole way — and, increasingly, AI systems built to earn their keep in production."}
           </p>
         </Reveal>
 
@@ -35,7 +37,7 @@ export default function Experience() {
             <motion.div className="fill" style={{ scaleY }} />
           </div>
           <div className="tl">
-            {experience.map((job, i) => (
+            {visibleExperience.map((job, i) => (
               <Reveal key={`${job.company}-${i}`} delay={Math.min(i * 0.02, 0.12)} amount={0.25}>
                 <div className={`job${job.now ? " now" : ""}`}>
                   <div className="when">
@@ -50,6 +52,16 @@ export default function Experience() {
                     <h3>{job.role}</h3>
                     <div className="co">{job.company}</div>
                     <p>{job.summary}</p>
+                    {job.projects?.length ? (
+                      <div className="projects">
+                        {job.projects.map((p) => (
+                          <div className="project" key={p.name}>
+                            <h4>{p.name}</h4>
+                            <p>{p.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="stack">
                       {job.stack.map((s) => (
                         <span className="chip" key={s}>
@@ -63,6 +75,11 @@ export default function Experience() {
             ))}
           </div>
         </div>
+        {recruiterMode && (
+          <p className="modeNote">
+            Showing the four most relevant leadership roles. Exit recruiter view for the complete timeline.
+          </p>
+        )}
       </div>
     </section>
   );

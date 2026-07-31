@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useRecruiterMode } from "./RecruiterMode";
 
 // The statement, as segments so highlighted phrases keep their accent styling.
 const SEGMENTS: { t: string; hl?: boolean }[] = [
-  { t: "Eleven years turning Rails monoliths into resilient microservices — now pointed at the hardest, most interesting layer: making software that " },
+  { t: "Twelve years modernizing large-scale Rails monoliths and the microservices around them — now pointed at the hardest, most interesting layer: making software that " },
   { t: "reasons", hl: true },
   { t: ". From recommendation engines to " },
   { t: "agentic developer workflows", hl: true },
@@ -17,6 +18,10 @@ const WORDS = SEGMENTS.flatMap((seg) =>
 );
 
 export default function Thesis() {
+  const { enabled: recruiterMode } = useRecruiterMode();
+  const recruiterWords = "Engineering leadership across architecture, delivery, and AI-native products — with Rails depth, Python fluency, and a bias toward systems that hold up in production.".split(/(\s+)/).filter(Boolean).map((w) => ({ w, hl: false }));
+  const words = recruiterMode ? recruiterWords : WORDS;
+
   return (
     <section className="thesis" id="thesis">
       <div className="wrap">
@@ -27,7 +32,7 @@ export default function Thesis() {
           viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.6 }}
         >
-          The arc
+          {recruiterMode ? "Recruiter brief" : "The arc"}
         </motion.div>
 
         <motion.blockquote
@@ -36,7 +41,7 @@ export default function Thesis() {
           viewport={{ once: true, amount: 0.25 }}
           variants={{ show: { transition: { staggerChildren: 0.018 } } }}
         >
-          {WORDS.map((word, i) =>
+          {words.map((word, i) =>
             /^\s+$/.test(word.w) ? (
               <span key={i}> </span>
             ) : (
@@ -62,7 +67,7 @@ export default function Thesis() {
           viewport={{ once: true, amount: 0.6 }}
           transition={{ duration: 0.6, delay: 0.15 }}
         >
-          Ruby on Rails · Python · FastAPI · Anthropic Claude · MCP
+          {recruiterMode ? "Architecture · delivery · mentoring · AI platforms" : "Ruby on Rails · Python · FastAPI · Anthropic Claude · MCP"}
         </motion.div>
       </div>
     </section>

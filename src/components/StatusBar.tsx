@@ -5,13 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toggleTheme } from "@/lib/theme";
 import { useTheme } from "@/lib/useTheme";
+import { RecruiterModeToggle } from "./RecruiterMode";
 
 const SECTIONS = [
   { id: "top", label: "01 · intro" },
   { id: "work", label: "02 · work" },
   { id: "skills", label: "03 · stack" },
-  { id: "ask", label: "04 · ask" },
-  { id: "contact", label: "05 · contact" },
+  { id: "personal", label: "04 · details" },
+  { id: "ask", label: "05 · ask" },
+  { id: "contact", label: "06 · contact" },
 ];
 
 export default function StatusBar() {
@@ -58,6 +60,7 @@ export default function StatusBar() {
             ✎ blog
           </Link>
         </nav>
+        {isHome && <RecruiterModeToggle />}
         <button
           className="iconbtn"
           onClick={() => toggleTheme()}

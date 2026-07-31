@@ -101,7 +101,7 @@ export default function AskResume() {
     <section id="ask">
       <div className="wrap">
         <Reveal>
-          <div className="eyebrow">04 · ask my résumé</div>
+          <div className="eyebrow">05 · ask my résumé</div>
         </Reveal>
 
         <div className="chatgrid">
