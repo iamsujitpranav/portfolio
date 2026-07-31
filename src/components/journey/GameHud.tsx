@@ -272,12 +272,11 @@ export default function GameHud({
         </div>
       )}
 
+      <div className="jrnLookHint" aria-label="Camera control hint">◉ Drag to explore</div>
       {/* One-time controls hint. */}
       {!hintGone && (
         <div className="jrnControls">
-          <b>Space</b> to vault obstacles — or walk into one and watch the kick ·{" "}
-          <b>Shift</b> to jog · <b>click a snowman</b> to pelt it · <b>drag</b> to
-          look around · everything there is to play is in <b>🎮 Games</b>
+          <b>WASD / Arrow keys</b> to walk · <b>drag</b> to look around · <b>click markers</b> to teleport · <b>Space</b> to vault · <b>Shift</b> to jog
         </div>
       )}
 

@@ -378,7 +378,7 @@ section { padding: 120px 0; position: relative; }
 .chathead .dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--border); display: block; }
 .chathead .dots i:first-child { background: var(--accent); }
 .chathead .powered { margin-left: auto; color: var(--muted); display: flex; align-items: center; gap: 7px; }
-.chatbody { padding: 22px 18px; display: flex; flex-direction: column; gap: 16px; height: 380px; overflow-y: auto; scrollbar-width: thin; }
+.chatbody { padding: 22px 18px; display: flex; flex-direction: column; gap: 16px; height: 380px; overflow-y: auto; scrollbar-width: none; scrollbar-color: transparent transparent; }
 .msg { display: flex; gap: 10px; max-width: 90%; }
 .msg .av { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; font-family: var(--font-mono); font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .msg.user { align-self: flex-end; flex-direction: row-reverse; }
@@ -531,6 +531,23 @@ html:has(.jrnGate) .cursor-ring, html:has(.jrnGate) .cursor-dot { opacity: 0; }
   border: 1px solid rgba(23,25,31,0.12); color: #2a2a2a;
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em;
   transition: background 0.2s, transform 0.2s var(--ease); }
+.jrnOpeningIntro { position: absolute; z-index: 34; left: 50%; bottom: 30px; width: min(500px, calc(100vw - 40px)); padding: 18px 20px 16px; color: #e8fff1; border: 1px solid rgba(127,224,192,0.38); border-radius: 14px; background: rgba(2,17,13,0.84); box-shadow: 0 18px 55px rgba(0,0,0,0.34), 0 0 30px rgba(71,220,174,0.14); backdrop-filter: blur(12px); transform: translateX(-50%); animation: jrnOpeningIn 0.55s var(--ease) both; }
+@keyframes jrnOpeningIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.jrnOpeningIntroStep { color: #7fe0c0; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; }
+.jrnOpeningIntro h2 { margin: 7px 0 4px; font-family: var(--font-display); font-size: clamp(25px, 3vw, 36px); line-height: 1; }
+.jrnOpeningIntro p { margin: 0; color: rgba(232,255,241,0.76); font-size: 13px; line-height: 1.45; }
+.jrnOpeningIntroProgress { height: 2px; margin-top: 13px; overflow: hidden; background: rgba(127,224,192,0.18); }
+.jrnOpeningIntroProgress span { display: block; width: 100%; height: 100%; transform-origin: left; background: #7fe0c0; animation: jrnOpeningProgress 9s linear both; }
+@keyframes jrnOpeningProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.jrnOpeningIntroActions { display: flex; align-items: center; gap: 10px; margin-top: 13px; }
+.jrnOpeningStart, .jrnOpeningSkip, .jrnOpeningSecondary button { cursor: pointer; font-family: var(--font-mono); }
+.jrnOpeningStart { padding: 10px 15px; color: #061510; background: #7fe0c0; border: 1px solid #a9f3da; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.jrnOpeningSkip { padding: 8px 10px; color: rgba(232,255,241,0.72); background: transparent; border: 0; font-size: 11px; }
+.jrnOpeningSecondary { display: flex; flex-wrap: wrap; gap: 5px 13px; margin-top: 11px; }
+.jrnOpeningSecondary button { padding: 0; color: rgba(232,255,241,0.58); background: none; border: 0; font-size: 10px; }
+.jrnOpeningSecondary button:hover, .jrnOpeningSkip:hover { color: #fff; }
+@media (max-width: 900px) { .jrnOpeningIntro { bottom: calc(var(--jrn-dock, 112px) + 8px); width: min(500px, calc(100vw - 24px)); } .jrnLookHint { right: 12px; bottom: calc(var(--jrn-dock, 112px) + 58px); } }
+
 .jrnSkip:hover { background: #fff; transform: translateY(-1px); }
 
 /* Left rail — the Trail menu, the tour offer, and the Trail map, in one column.
@@ -551,11 +568,13 @@ html:has(.jrnGate) .cursor-ring, html:has(.jrnGate) .cursor-dot { opacity: 0; }
 /* Trail menu */
 /* Shrinks and scrolls before the map does: it's a list, and a list reads fine
    half-shown, where a cropped map just loses its far corner. */
-.jrnMenu { position: static; flex: 1 1 0; min-height: 0; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; touch-action: pan-y;
-  display: grid; gap: 7px; padding: 14px; min-width: 172px; max-width: 246px;
+.jrnMenu { position: static; flex: 1 1 0; min-height: 0; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; scrollbar-color: transparent transparent; touch-action: pan-y;
+  scrollbar-width: none; -ms-overflow-style: none;
+  display: grid; gap: 7px; padding: 14px; min-width: 172px; max-width: 276px;
   background: rgba(255,255,255,0.62); backdrop-filter: blur(10px);
   border: 1px solid rgba(23,25,31,0.1); border-radius: 16px; box-shadow: 0 12px 40px rgba(40,34,20,0.18); }
 /* Nameplate above the stop list — the standing answer to "whose site is this?" */
+ .jrnMenu::-webkit-scrollbar { display: none; }
 .jrnWho { padding: 2px 6px 10px; border-bottom: 1px solid rgba(23,25,31,0.1); margin-bottom: 4px; }
 .jrnWhoName { font-family: var(--font-display); font-size: 17px; line-height: 1.15; letter-spacing: -0.02em; color: #221f18; }
 .jrnWhoRole { font-family: var(--font-mono); font-size: 11px; color: #6b6350; margin-top: 3px; }
@@ -574,9 +593,10 @@ html:has(.jrnGate) .cursor-ring, html:has(.jrnGate) .cursor-dot { opacity: 0; }
 .jrnMenuText b { font-weight: 500; line-height: 1.25; }
 .jrnMenuText em { font-family: var(--font-mono); font-style: normal; font-size: 10.5px; line-height: 1.35; color: #6b6350; }
 .jrnZone { width: 8px; height: 8px; border-radius: 2px; flex: none; margin-top: 5px; }
-.jrnZone[data-zone="meadow"] { background: #7fa03f; }
-.jrnZone[data-zone="forest"] { background: #3f6b34; }
-.jrnZone[data-zone="mountain"] { background: #8a8378; }
+.jrnZone[data-zone="meadow"] { background: #aaa493; }
+.jrnZone[data-zone="forest"] { background: #aaa493; }
+.jrnZone[data-zone="mountain"] { background: #aaa493; }
+ .jrnMenuItem[data-active="1"] .jrnZone { background: #6e9f3f; box-shadow: 0 0 0 3px rgba(110,159,63,0.16); }
 .jrnSocialMenuItem { border-top: 1px solid rgba(23,25,31,0.1); margin-top: 3px; padding-top: 12px; }
 .jrnSocialMenuIcon { width: 18px; height: 18px; display: grid; place-items: center; flex: none; margin-top: 2px; border-radius: 50%; background: #24292f; color: #fff; font-size: 12px; line-height: 1; }
 .jrnSocialMenuItem[data-active="1"] .jrnSocialMenuIcon { background: var(--accent); }
@@ -786,6 +806,7 @@ html.jrn-opening-shot .jrnKioskTag {
 .jrnSprint:hover { transform: translateY(-1px); background: #fff; }
 .jrnSprint[data-on="1"] { background: var(--accent); color: #fff; border-color: transparent; }
 
+ .jrnLookHint { position: absolute; z-index: 30; right: 22px; bottom: 60px; padding: 7px 11px; color: #4a4433; background: rgba(255,255,255,0.72); border: 1px solid rgba(23,25,31,0.1); border-radius: 999px; font-family: var(--font-mono); font-size: 11px; backdrop-filter: blur(6px); }
 .jrnControls { position: absolute; z-index: 30; bottom: 20px; left: 50%; transform: translateX(-50%);
   font-family: var(--font-mono); font-size: 11.5px; color: #4a4433; letter-spacing: 0.02em; text-align: center;
   padding: 8px 16px; background: rgba(255,255,255,0.72); border: 1px solid rgba(23,25,31,0.08); border-radius: 999px;
@@ -1351,6 +1372,7 @@ html.jrn-opening-shot .jrnKioskTag {
      themselves against the overlay. */
   .jrnLeft { display: contents; }
   .jrnMenu { position: absolute; z-index: 30; top: auto; bottom: 16px; left: 50%;
+  scrollbar-width: none; -ms-overflow-style: none;
     transform: translateX(-50%); min-height: 0; max-height: calc(100vh - 120px);
     grid-auto-flow: column; grid-template-columns: none; overflow-x: auto; max-width: 94vw; }
   /* Lifted clear of that strip — at bottom:20px the map card sat underneath it. */
@@ -1360,6 +1382,7 @@ html.jrn-opening-shot .jrnKioskTag {
   .jrnMenuTitle { display: none; }
   /* The menu turns into a horizontal strip here — the nameplate and the stop
      descriptions don't fit it (the classic site below carries both). */
+ .jrnMenu::-webkit-scrollbar { display: none; }
   .jrnWho { display: none; }
   .jrnMenuText em { display: none; }
   .jrnMenuItem { align-items: center; }

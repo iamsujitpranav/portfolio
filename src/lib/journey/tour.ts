@@ -121,7 +121,7 @@ export function beatTitle(b: TourBeat): string {
 // suddenly reading differently.
 const STOP_TITLES: Record<string, string> = {
   start: "The Root",
-  thesis: "The Arc",
+  thesis: "My Journey",
   experience: "Experience",
   skills: "Skills",
   ask: "Ask my résumé",

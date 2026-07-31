@@ -56,9 +56,9 @@ export const STOPS: JourneyStop[] = [
   // walking under it. Keep in sync with the `thesis` cut in graph.ts.
   {
     id: "thesis",
-    label: "The Arc",
+    label: "Career Snapshot",
     sub: "My career in one paragraph",
-    marker: "The Arc",
+    marker: "Career Snapshot",
     zone: "meadow",
     u: 0.022,
   },

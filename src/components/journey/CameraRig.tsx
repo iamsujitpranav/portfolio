@@ -18,6 +18,7 @@ export type DisplayFocus = { id: string; x: number; y: number; z: number; fx?: n
 const GROUND_CLEARANCE = 1.2;
 const ARCHITECT_MIN_DISTANCE = 6.5;
 const ARCHITECT_MAX_DISTANCE = 10;
+const ARRIVAL_BOARD_DISTANCE = 3.8;
 
 // Close third-person framing. The camera rides just behind and slightly off the
 // runner's shoulder at head height, so the avatar fills the frame and its face
@@ -119,12 +120,20 @@ export default function CameraRig({
       fwd.set(warp.lookX - warpPoint.x, 0, warp.lookZ - warpPoint.z);
       if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1);
       fwd.normalize();
-      const dist = CHASE_FAR;
+      // Resume stops should land as readable sign-board portraits: aim at the
+      // physical board/terminal supplied by JourneyOverlay and move in close
+      // enough that it owns the frame. The Architect has its separate authored
+      // opening pose above; this only affects the other teleport arrivals.
+      const dist = ARRIVAL_BOARD_DISTANCE;
       camera.position.set(warpPoint.x - fwd.x * dist + fwd.z * SHOULDER,  walkHeight(warpPoint.x, warpPoint.z) + EYE_Y + dist * 0.12, warpPoint.z - fwd.z * dist - fwd.x * SHOULDER);
       // Preserve the computed arrival pose; the idle branch reapplies this
       // lock on every subsequent frame.
       lockedPosition.copy(camera.position);
-      lockedTarget.set(warpPoint.x + fwd.x * 0.9, walkHeight(warpPoint.x, warpPoint.z) + LOOK_Y, warpPoint.z + fwd.z * 0.9);
+      lockedTarget.set(
+        warp.lookX,
+        walkHeight(warp.lookX, warp.lookZ) + 2.65,
+        warp.lookZ,
+      );
       ctrl.target.copy(lockedTarget);
       camera.lookAt(lockedTarget);
       lockTarget.current = true;

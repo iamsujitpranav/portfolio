@@ -96,7 +96,7 @@ function displayPresentation(id: string): DisplayPresentation {
     case "start":
       return { theme: "town", kicker: "THE ROOT · TRAILHEAD INTRODUCTION", title: "The person behind the trail", glyph: "◆" };
     case "thesis":
-      return { theme: "projector", kicker: "THE ARC · PROJECTED MANIFESTO", title: "My career in one paragraph", glyph: "◒" };
+      return { theme: "projector", kicker: "Career Snapshot · PROJECTED MANIFESTO", title: "My career in one paragraph", glyph: "◒" };
     case "experience":
       return { theme: "career", kicker: "EXPERIENCE · CAREER CINEMA", title: "Where I have worked, and on what", glyph: "▶" };
     case "skills":
@@ -143,6 +143,7 @@ export default function JourneyOverlay() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [walking, setWalking] = useState(false);
   const [openingShot, setOpeningShot] = useState(true);
+  const [openingIntro, setOpeningIntro] = useState(false);
   const [launch, setLaunch] = useState(0); // remount key to replay the journey
   const pending = useRef<Pending>({ panel: "" });
   // --- guided tour ---------------------------------------------------------
@@ -170,6 +171,23 @@ export default function JourneyOverlay() {
     }, 2200);
     return () => window.clearInterval(timer);
   }, [phase]);
+
+  // The first landing is a short, interruptible title sequence. The board reveal runs underneath it.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    if (reduce) { setOpeningShot(false); return; }
+    setOpeningIntro(true);
+    const timer = window.setTimeout(() => {
+      setOpeningIntro(false);
+      setOpeningShot(false);
+    }, 9000);
+    return () => window.clearTimeout(timer);
+  }, [phase, reduce, launch]);
+
+  const skipIntro = useCallback(() => {
+    setOpeningIntro(false);
+    setOpeningShot(false);
+  }, []);
 
   // drei's in-world <Html> labels are portaled to <body> with a very high
   // z-index, outside this overlay's stacking context. Suppress every floating
@@ -543,7 +561,6 @@ export default function JourneyOverlay() {
     // The opening portrait is only a loading composition. Once the avatar is
     // ready, release world-space labels so signposts, plaques, and kiosks
     // become visible and usable.
-    setOpeningShot(false);
     // The avatar spawns on the Town Square (the Crossroads) — mark it current.
     setActiveId("cross");
     // Asked for the tour off the title card while the world was still loading?
@@ -675,6 +692,24 @@ export default function JourneyOverlay() {
               They're one flex column rather than two independently-placed
               cards, so the map can never land on top of the menu however far
               the menu's content runs — see .jrnLeft. */}
+          {openingIntro && !displayFocus && (
+            <aside className="jrnOpeningIntro" aria-label="Opening introduction">
+              <div className="jrnOpeningIntroStep">01 · THE TRAILHEAD</div>
+              <h2>Hi, I’m Sujit.</h2>
+              <p>I build scalable platforms, intelligent systems, and engineering teams.</p>
+              <div className="jrnOpeningIntroProgress" aria-hidden="true"><span /></div>
+              <div className="jrnOpeningIntroActions">
+                <button className="jrnOpeningStart" type="button" onClick={skipIntro}>Start the journey →</button>
+                <button className="jrnOpeningSkip" type="button" onClick={skipIntro}>Skip intro</button>
+              </div>
+              <div className="jrnOpeningSecondary" aria-label="Quick links">
+                <button type="button" onClick={() => { skipIntro(); toClassic(); }}>View résumé</button>
+                <button type="button" onClick={() => { skipIntro(); toClassic("work"); }}>Explore projects</button>
+                <button type="button" onClick={() => { skipIntro(); warpTo("ask"); }}>Ask my AI résumé</button>
+                <button type="button" onClick={() => { skipIntro(); openSocialTrail(); }}>Contact me</button>
+              </div>
+            </aside>
+          )}
           <div className="jrnLeft">
             {/* Who this is. The journey opens straight into a snowy world with
                 no chrome that names its owner — this nameplate sits above the
@@ -686,7 +721,7 @@ export default function JourneyOverlay() {
                 <div className="jrnWhoRole">{profile.title}</div>
                 <div className="jrnWhoKicker">Résumé · Explore it in 3D</div>
               </div>
-              <div className="jrnMenuTitle">The Trail</div>
+              <div className="jrnMenuTitle">The Trail · My Journey</div>
               {STOPS.filter((s) => s.id !== "contact").map((s) => (
                 <button
                   key={s.id}

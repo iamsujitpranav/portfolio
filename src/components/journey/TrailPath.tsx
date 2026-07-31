@@ -275,12 +275,12 @@ function drawArchitectBoard(
   context.textAlign = "center";
   context.shadowColor = "#19ff72";
   context.shadowBlur = 4;
-  context.font = "800 112px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  context.font = "800 84px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
   drawFormingText(
     context,
-    "The Architect",
+    "Hi I'm Sujit, The Architect.",
     width / 2,
-    194,
+    220,
     revealPhase(elapsed, 0.2, 1.35),
     tick,
     3,
@@ -288,29 +288,22 @@ function drawArchitectBoard(
   );
   context.shadowBlur = 0;
 
-  context.font = "700 52px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-  const quote = wrappedLines(
+  context.font = "700 34px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  drawFormingText(
     context,
-    "Your life is the sum of a remainder of an unbalanced equation.",
-    2700,
-  );
-  quote.forEach((line, index) =>
-    drawFormingText(
-      context,
-      `> ${line}`,
-      width / 2,
-      308 + index * 64,
-      revealPhase(elapsed, 0.9 + index * 0.14, 1.8),
-      tick,
-      10 + index,
-      "#68ffa3",
-    ),
+    "“Your life is the sum of a remainder of an unbalanced equation.” — The Architect, The Matrix Reloaded",
+    width / 2,
+    414,
+    revealPhase(elapsed, 1.55, 1.8),
+    tick,
+    10,
+    "#68ffa3",
   );
 
-  context.font = "650 48px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  context.font = "650 39px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
   const bio = wrappedLines(
     context,
-    "I don't just build code; I engineer systems. From client-side pixels to deep-learning pipelines, I lead the development of intelligent web ecosystems.",
+    "I don't just build code; I architect scalable systems—from polished user experiences to intelligent AI applications. I believe that Great systems begin with understanding the problem.",
     2540,
   );
   bio.forEach((line, index) =>
@@ -318,8 +311,8 @@ function drawArchitectBoard(
       context,
       line,
       width / 2,
-      448 + index * 68,
-      revealPhase(elapsed, 1.65 + index * 0.2, 2.35),
+      542 + index * 54,
+      revealPhase(elapsed, 2.25 + index * 0.2, 2.35),
       tick,
       20 + index,
       "#edfff3",
@@ -329,19 +322,19 @@ function drawArchitectBoard(
   context.strokeStyle = "rgba(25, 255, 114, 0.42)";
   context.lineWidth = 2;
   context.beginPath();
-  context.moveTo(110, 674);
-  context.lineTo(width - 110, 674);
+  context.moveTo(110, 694);
+  context.lineTo(width - 110, 694);
   context.stroke();
 
   context.shadowColor = "#19ff72";
   context.shadowBlur = 2;
-  context.font = "800 40px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  context.font = "800 36px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
   drawFormingText(
     context,
-    "[ ENTER // CLICK BOARD TO OPEN ]",
+    "[ START THE JOURNEY → ]",
     width / 2,
-    738,
-    revealPhase(elapsed, 3.25, 1.35),
+    742,
+    revealPhase(elapsed, 4.1, 1.35),
     tick,
     30,
     "#9dffc1",
