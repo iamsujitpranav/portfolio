@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { setBlocker, dropBlocker } from "@/lib/journey/traffic";
 import { height, walkHeight } from "@/lib/journey/terrain";
 import { SETTLEMENT_PLOTS } from "@/lib/journey/settlement";
 import { applyTopSnow } from "@/lib/journey/snowcover";
@@ -106,6 +107,19 @@ const RURAL_FLEET: { x: number; z: number; yaw: number; url: string; scale: numb
   { x: -13.43, z: -132.06, yaw: 0.43, url: CAR("suv"), scale: 1.25 }, // Ask→Summit cabin
   { x: 53.21, z: -113.92, yaw: -0.85, url: CAR("sedan"), scale: 1.2 }, // outer-ring cabin
 ];
+
+// How wide a body the avatar has to walk around, per model. MEASURED, not
+// guessed (scratchpad/glb_bbox.ts reads the POSITION accessor bounds): every
+// vehicle in the Kenney kit is 1.50 m wide raw, so at these scales each one is
+// 0.90–0.98 m from its centre to its flank. 1.05 covers the widest plus the
+// snow-shell the top-snow shader adds. A sled is knee-high scenery.
+//
+// Only VEHICLES go in here. A log is deliberately not a blocker: vaulting and
+// kicking those is the obstacle course, and an avatar that tiptoed around them
+// would have nothing left to do.
+const BLOCK_R: Record<string, number> = { "sled-long": 0.8, sled: 0.8 };
+const blockR = (url: string) =>
+  BLOCK_R[url.slice(url.lastIndexOf("/") + 1).replace(".glb", "")] ?? 1.05;
 
 // --- the country pickup: drives Town Gate → Crossroads → Summit approach ------
 // Same driver brain as the village van (SideRoad.tsx): shuttles its route,
@@ -244,10 +258,19 @@ function RoamingTruck() {
       group.current.position.set(p.x, walkHeight(p.x, p.z) + 0.03, p.z);
       group.current.rotation.y = yaw.current;
     }
+    // Publish where the bodywork is, so the avatar steps around it. This truck
+    // shuttles villagegate~cross → cross~contact — two WALKABLE edges that meet
+    // at the Town Square — so it shares a centreline with the avatar for its
+    // whole route. It brakes for them; this is the other half of that bargain.
+    setBlocker("truck", p.x, p.z, 1.05);
     const n = skyExtra.night;
     headMat.opacity = n;
     poolMat.opacity = n * 0.55;
   });
+
+  // A "replay the journey" remounts the whole Canvas — leave nothing behind for
+  // the next avatar to dodge.
+  useEffect(() => () => dropBlocker("truck"), []);
 
   const TS = 1.25;
   return (
@@ -283,6 +306,25 @@ export default function Vehicles() {
       return { ...v, x, y, z, yaw };
     }).filter(Boolean) as (VSpec & { x: number; y: number; z: number; yaw: number })[];
   }, []);
+
+  // Parked vehicles are blockers too. Most sit far enough off the lane that the
+  // solver never engages them (the sidestep is measured from the centreline, so
+  // anything already clear costs nothing) — but the petrol-bunk plough stands
+  // 2.16 m off its lane with the shovel out, which is inside a walker's shoulder.
+  useEffect(() => {
+    const ids: string[] = [];
+    placed.forEach((v, i) => {
+      const id = `park-${i}`;
+      ids.push(id);
+      setBlocker(id, v.x, v.z, blockR(v.url));
+    });
+    RURAL_FLEET.forEach((v, i) => {
+      const id = `rural-${i}`;
+      ids.push(id);
+      setBlocker(id, v.x, v.z, blockR(v.url));
+    });
+    return () => ids.forEach(dropBlocker);
+  }, [placed]);
 
   return (
     <group>

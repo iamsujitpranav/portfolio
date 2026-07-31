@@ -105,7 +105,7 @@ type SpineCut = {
 const STREET_CUTS: SpineCut[] = [
   // "start" is the OLD TOWN's plaza — the street's head, now fronted by the
   // town library (the town square itself moved to the Crossroads).
-  { id: "start", idx: 0, kind: "stop", sectionId: "start", label: "Old Town" },
+  { id: "start", idx: 0, kind: "stop", sectionId: "start", label: "The Root" },
   { id: "thesis", idx: indexNearZ(1), kind: "stop", sectionId: "thesis", label: "The Arc" },
   { id: "villagegate", idx: indexNearZ(-30), kind: "junction", label: "Town Gate" },
 ];
@@ -725,6 +725,11 @@ const AT_END = 1e-4;
  * fanning out around it. */
 export const START_NODE = "cross";
 
+/** Initial resting point on the south road beside the Architect board. Keeping
+ * this as a graph anchor (instead of a free world-space offset) means the avatar
+ * can begin walking from the exact place where it is visibly standing. */
+export const START_ANCHOR = { edgeId: "cross~contact", tAB: 0.08 } as const;
+
 /**
  * The mutable route-cursor fields shared by the nav singleton (Avatar.tsx adds
  * its own derived/status fields on top). Kept here so the assign/reset helpers
@@ -759,9 +764,28 @@ export function assignRoute(
   nav.destNodeId = destNodeId;
 }
 
+/**
+ * Park a cursor at an ARBITRARY point on the graph with no route — the trail
+ * map's teleport. `resetCursor` does the same thing for a node; this one lands
+ * anywhere an edge runs, which is what a map marker needs (kiosks, landmarks
+ * and game props all sit mid-edge). Returns false for an edge that doesn't
+ * exist, so a bad anchor leaves the avatar where it stands rather than
+ * stranding it off the road network.
+ */
+export function placeCursor(nav: NavCursor, edgeId: string, tAB: number): boolean {
+  if (!EDGE_BY_ID.has(edgeId)) return false;
+  nav.route = [];
+  nav.step = 0;
+  nav.edgeId = edgeId;
+  nav.tAB = Math.min(Math.max(tAB, 0), 1);
+  nav.destTab = nav.tAB;
+  nav.destNodeId = null;
+  return true;
+}
+
 /** Park a cursor at a node with no route (spawn / journey restart). */
-export function resetCursor(nav: NavCursor, nodeId: string = START_NODE) {
-  const s = spawnAt(nodeId);
+export function resetCursor(nav: NavCursor, nodeId?: string) {
+  const s = nodeId ? spawnAt(nodeId) : START_ANCHOR;
   nav.route = [];
   nav.step = 0;
   nav.edgeId = s.edgeId;

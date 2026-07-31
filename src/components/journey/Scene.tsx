@@ -26,6 +26,7 @@ import Snow from "./Snow";
 import Dust from "./Dust";
 import Dioramas from "./Dioramas";
 import Landmarks from "./Landmarks";
+import AskTerminal from "./AskTerminal";
 import Fountains from "./Fountains";
 import Settlement from "./Settlement";
 import Vehicles from "./Vehicles";
@@ -37,8 +38,10 @@ import Curling from "./Curling";
 import Snowballs from "./Snowballs";
 import Collectibles from "./Collectibles";
 import GameKiosk from "./GameKiosk";
-import Avatar, { type Nav } from "./Avatar";
-import CameraRig from "./CameraRig";
+import Avatar, { AVATAR_LIGHT_LAYER, type Nav } from "./Avatar";
+import CameraRig, { type DisplayFocus } from "./CameraRig";
+import TeleportRing from "./TeleportRing";
+import TownSquare from "./TownSquare";
 import SocialSignposts from "./SocialSignposts";
 import { buildWalkCurve, buildEdgeCurves } from "@/lib/journey/curve";
 import { FOG_COLOR, FOG_DENSITY } from "@/lib/journey/config";
@@ -48,14 +51,20 @@ import { avatarPos } from "@/lib/journey/game";
 // Tone mapping happens inside the composer (the ACES ToneMapping effect), so
 // hand it off from the renderer to avoid mapping the image twice.
 function RendererSetup() {
-  const { gl } = useThree();
+  const { gl, camera } = useThree();
   useEffect(() => {
     const prev = gl.toneMapping;
+    const prevLayers = camera.layers.mask;
     gl.toneMapping = THREE.NoToneMapping;
+    // Layer 1 carries the avatar-only portrait light. The avatar itself remains
+    // on layer 0 as well, so enabling this layer does not hide or replace any
+    // normal scene rendering.
+    camera.layers.enable(AVATAR_LIGHT_LAYER);
     return () => {
       gl.toneMapping = prev;
+      camera.layers.mask = prevLayers;
     };
-  }, [gl]);
+  }, [camera, gl]);
   return null;
 }
 
@@ -113,23 +122,75 @@ function Sun() {
   );
 }
 
+// Soft camera-facing portrait fill. The sun intentionally stays low and fixed
+// in world space, which gives the landscape its long shadows but leaves the
+// avatar’s face dark whenever a stop turns them away from it. This narrow,
+// shadowless spotlight follows the camera and only illuminates avatar layer 1,
+// preserving the contrast and white balance of the snow and nearby props.
+function AvatarFillLight() {
+  const light = useRef<THREE.SpotLight>(null);
+  const target = useMemo(() => new THREE.Object3D(), []);
+  const { camera, scene } = useThree();
+
+  useEffect(() => {
+    scene.add(target);
+    if (light.current) light.current.layers.set(AVATAR_LIGHT_LAYER);
+    return () => {
+      scene.remove(target);
+    };
+  }, [scene, target]);
+
+  useFrame(() => {
+    const fill = light.current;
+    if (!fill) return;
+    fill.position.copy(camera.position);
+    target.position.set(avatarPos.x, avatarPos.y + 1.42, avatarPos.z);
+    target.updateMatrixWorld();
+
+    // Maintain a consistent gentle fill through the wide-to-close teleport
+    // dolly. The cap prevents a user zoomed far away from flooding the avatar.
+    const distance = fill.position.distanceTo(target.position);
+    fill.intensity = THREE.MathUtils.clamp(Math.pow(distance, 1.25) * 1.4, 8, 24);
+  });
+
+  return (
+    <spotLight
+      ref={light}
+      target={target}
+      color="#ffe9d8"
+      intensity={12}
+      distance={16}
+      decay={1.25}
+      angle={0.34}
+      penumbra={0.9}
+    />
+  );
+}
+
 export default function Scene({
   nav,
   activeId,
   onPick,
-  onProject,
   onLoaded,
   onReady,
   onArrive,
+  avatarReady,
+  openingShot,
+  onOpeningEnd: _onOpeningEnd,
+  displayFocus: _displayFocus,
+  onDisplay,
 }: {
   nav: Nav;
   activeId: string;
   onPick: (id: string) => void;
-  /** A project landmark's plaque was clicked — open its card. */
-  onProject: (panelId: string) => void;
   onLoaded: () => void;
   onReady: () => void;
   onArrive: () => void;
+  avatarReady: boolean;
+  openingShot: boolean;
+  onOpeningEnd: () => void;
+  displayFocus: DisplayFocus | null;
+  onDisplay: (focus: DisplayFocus) => void;
 }) {
   // The legacy single spine curve (still feeds the ribbon, signs, games and
   // lights in this phase) + the per-edge curves the route-driven avatar walks.
@@ -171,9 +232,13 @@ export default function Scene({
       <Scatter />
       <Dioramas />
       <Fountains />
+      <TownSquare />
+      <SocialSignposts onOpen={onDisplay} />
       {/* The project landmarks: each real piece of work, built as a structure
           beside the road that leads to the stop it belongs to. */}
-      <Landmarks onPick={onProject} />
+      <Landmarks showPlaques={!openingShot} onPick={(_, focus) => onDisplay(focus)} />
+      {/* The assistant's console, on the road into the Ask stop. */}
+      <AskTerminal active={activeId === "ask"} onOpen={onDisplay} />
       <Suspense fallback={null}>
         <Settlement />
         <Vehicles />
@@ -183,13 +248,20 @@ export default function Scene({
       <Snow />
       <Fireflies />
       <Dust nav={nav} />
-      <TrailPath edgeCurves={edgeCurves} activeId={activeId} onPick={onPick} />
-      <SocialSignposts />
+      <TrailPath
+        edgeCurves={edgeCurves}
+        activeId={activeId}
+        revealRootText={avatarReady}
+        showSecondarySigns={!openingShot}
+        onPick={onPick}
+        onDisplay={onDisplay}
+      />
+      <TeleportRing />
 
       {/* Mini-games layered onto the trail: the obstacle runner, snowball
           targets, hidden collectibles, curling on the frozen pond, and the two
           kiosk games (tic-tac-toe and stack match) in the village. */}
-      <Obstacles curve={curve} nav={nav} />
+      <Obstacles curve={curve} edgeCurves={edgeCurves} nav={nav} />
       <Collectibles curve={curve} nav={nav} />
       <Snowballs curve={curve} />
       <Curling />
@@ -207,7 +279,11 @@ export default function Scene({
         />
       </Suspense>
 
-      <CameraRig edgeCurves={edgeCurves} nav={nav} />
+      <CameraRig
+        edgeCurves={edgeCurves}
+        nav={nav}
+      />
+      <AvatarFillLight />
 
       {/* Cinematic post chain. N8AO grounds contacts; Bloom (pre-tonemap, on the
           HDR buffer) gives the sun-side grass, water sheen and sky a golden glow;
@@ -216,7 +292,7 @@ export default function Scene({
           crisp the low-poly edges. */}
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <N8AO aoRadius={3} distanceFalloff={1} intensity={1.45} halfRes />
-        <Bloom intensity={0.5} luminanceThreshold={0.82} luminanceSmoothing={0.3} mipmapBlur />
+        <Bloom intensity={0.34} luminanceThreshold={0.9} luminanceSmoothing={0.18} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <HueSaturation saturation={0.18} hue={0} />
         <BrightnessContrast brightness={0.0} contrast={0.15} />

@@ -81,12 +81,12 @@ const SITES: Omit<ProjectSite, "yaw">[] = [
   {
     id: "foundry",
     title: "The Foundry",
-    project: "Monolith → microservices modernization",
+    project: "Large-scale monolith modernization",
     company: "Emami Frankross",
     blurb:
-      "Took a large-scale e-commerce monolith apart into resilient services without stopping the business, and built the DevOps stack (AWS, Docker, GitHub Actions) that let it ship continuously.",
+      "Led the backend modernization of a large-scale e-commerce monolith carrying thousands of daily transactions — rebuilt from the inside without stopping the business — and built the DevOps stack (AWS, Docker, GitHub Actions) that let it ship continuously.",
     reads:
-      "One huge hall under scaffolding, being dismantled into small workshops — each lit, each running on its own, joined by the pipes that still carry traffic between them.",
+      "One huge hall under scaffolding — being rebuilt from the inside rather than knocked down — with newer workshops standing alongside it, each lit, joined by the pipes that carry traffic between them.",
     metric: { value: "2×", label: "release velocity" },
     structure: "foundry",
     x: 48.05,

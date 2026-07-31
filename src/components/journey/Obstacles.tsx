@@ -20,6 +20,8 @@ import {
   VAULT_MOVES,
 } from "@/lib/journey/config";
 import { nearestSideRoadPoint } from "@/lib/journey/sideroad";
+import { spineProgress, spineUToPoint } from "@/lib/journey/graph";
+import { warp, warpedSince } from "@/lib/journey/warp";
 import type { Nav } from "./Avatar";
 
 // The obstacle course. Snow-logs and ice-rocks sit across the trail at fixed
@@ -54,12 +56,14 @@ function Obstacle({
   u,
   kind,
   curve,
+  edgeCurves,
   nav,
 }: {
   id: number;
   u: number;
   kind: Kind;
   curve: THREE.CatmullRomCurve3;
+  edgeCurves: Map<string, THREE.CatmullRomCurve3>;
   nav: Nav;
 }) {
   // World placement + facing, sampled once. kickV: how hard a stumble punts the
@@ -70,9 +74,34 @@ function Obstacle({
   // the model has already sunk into it. side: which way this obstacle gets
   // punted off the trail (deterministic per placement).
   const place = useMemo(() => {
-    const p = curve.getPointAt(u);
-    const tan = curve.getTangentAt(u);
-    const yaw = Math.atan2(tan.x, tan.z); // local +Z runs down-trail
+    // WHERE THE MESH GOES — which has to be exactly where the TRIGGER believes
+    // it is. The trigger fires when nav.progress crosses `u`; nav.progress is
+    // spineProgress(edge, tAB). The mesh, though, used to be drawn at
+    // spine.getPointAt(u). Those are two different rulers for the same road —
+    // a Catmull-Rom's own arc-length table versus the road polyline's — and they
+    // disagreed by up to 1.52 m across these seven placements. KICK_STOP_LEAD is
+    // 1.9 m and a log is 0.84 m thick, so a metre and a half of drift is the
+    // runner pulling up and swinging INSIDE the log it meant to stop short of:
+    // that is the "walks straight through the log". Anchoring through
+    // spineUToPoint + the edge curve uses the exact pair of functions the
+    // avatar's own position comes from, so the two now agree by construction
+    // (re-measured: 0.000 m).
+    const anchor = spineUToPoint(u);
+    const ec = edgeCurves.get(anchor.edgeId);
+    const tt = Math.min(1, Math.max(0, anchor.tAB));
+    const p = ec ? ec.getPointAt(tt) : curve.getPointAt(u);
+    // Local +Z must run DOWN-TRAIL — the direction spine progress grows, which
+    // on a leg the grand tour walks b→a is the reverse of the edge's own
+    // tangent. Get this backwards and a kicked log flies up the trail.
+    const rawTan = ec ? ec.getTangentAt(tt) : curve.getTangentAt(u);
+    const t0 = Math.min(0.998, tt);
+    const flip =
+      ec && spineProgress(anchor.edgeId, t0 + 0.002) < spineProgress(anchor.edgeId, t0)
+        ? -1
+        : 1;
+    const yaw = Math.atan2(rawTan.x * flip, rawTan.z * flip);
+    // Still the SPINE's length: leadU / stopU / decideU convert metres into
+    // fractions of `progress`, and progress is a fraction of the spine.
     const len = curve.getLength();
     const kickV = Math.max(9, WALK_SPEED * len * 1.7);
     const leadU = 0.9 / len;
@@ -108,7 +137,7 @@ function Obstacle({
       decideU,
       side,
     };
-  }, [curve, u]);
+  }, [curve, edgeCurves, u]);
 
   // Rest height of the mesh centre (meshes sit at the tilt-group origin so
   // rotation.x rolls the log about its own axis) + per-kind kick tuning.
@@ -144,6 +173,7 @@ function Obstacle({
     roll: 0,
     spin: 0,
   });
+  const warpSeen = useRef({ seq: warp.seq });
 
   useFrame((_, raw) => {
     const dt = Math.min(raw, 0.05);
@@ -176,8 +206,10 @@ function Obstacle({
 
     // A JUMP in the derived spine scalar (rejoining the spine off a scenic loop
     // snaps it across the loop's whole span) is a reposition — it must never
-    // read as sprinting past this obstacle. Real frames move ≤ ~0.001.
-    const teleported = Math.abs(progress - prev) > 0.03;
+    // read as sprinting past this obstacle. Real frames move ≤ ~0.001. A map
+    // warp says so outright, since a short one can land inside that margin.
+    const teleported =
+      warpedSince(warpSeen.current) || Math.abs(progress - prev) > 0.03;
     const moved = !teleported && Math.abs(progress - prev) > 1e-7;
     if (moved) s.dir = Math.sign(progress - prev) || 1;
 
@@ -393,15 +425,25 @@ function Obstacle({
 
 export default function Obstacles({
   curve,
+  edgeCurves,
   nav,
 }: {
   curve: THREE.CatmullRomCurve3;
+  edgeCurves: Map<string, THREE.CatmullRomCurve3>;
   nav: Nav;
 }) {
   return (
     <group>
       {OBSTACLES.map((o, i) => (
-        <Obstacle key={i} id={i} u={o.u} kind={o.kind} curve={curve} nav={nav} />
+        <Obstacle
+          key={i}
+          id={i}
+          u={o.u}
+          kind={o.kind}
+          curve={curve}
+          edgeCurves={edgeCurves}
+          nav={nav}
+        />
       ))}
     </group>
   );

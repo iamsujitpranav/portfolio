@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
 import { height } from "@/lib/journey/terrain";
-import { skyExtra } from "@/lib/journey/daynight";
 import { applyTopSnow } from "@/lib/journey/snowcover";
 import { SETTLEMENT_PLOTS, type Plot } from "@/lib/journey/settlement";
-import { B, GlowPane, WARM } from "./buildingKit";
+import { B, GlowPane } from "./buildingKit";
 
 // The winter hamlet the trail climbs through: a cluster of snow-roofed log
 // cabins composed from Kenney's Holiday kit (modular walls + hip roofs), a

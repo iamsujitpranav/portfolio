@@ -31,6 +31,13 @@ export type Attraction = {
    * are spread along the whole route rather than parked in one spot.
    */
   anchor: Anchor | null;
+  /**
+   * The thing itself, in world XZ — the board, the sheet of ice. `anchor` is
+   * where you STAND; this is what you came to look at, and it's what the
+   * teleport's arrival shot turns to frame. Omitted for the attractions that
+   * have no one place (see `anchor`), which fall back to facing down the road.
+   */
+  at?: { x: number; z: number };
   /** Kiosks open a DOM modal once you're close enough to reach the board. */
   modal?: ModalGame;
 };
@@ -61,12 +68,19 @@ export const ATTRACTIONS: Attraction[] = [
     // delivers you to the nearest road point to the hack (the west abutment).
     how: "Drag to look at the pond, then click the ice — three stones to an end, closest to the button scores.",
     anchor: anchorNear(CURL_SHEET.hackX, CURL_SHEET.hackZ),
+    // The middle of the sheet, so arriving frames the whole run of ice rather
+    // than the hack you're standing on.
+    at: {
+      x: (CURL_SHEET.hackX + CURL_SHEET.buttonX) / 2,
+      z: (CURL_SHEET.hackZ + CURL_SHEET.buttonZ) / 2,
+    },
   },
   {
     id: "tictactoe",
     label: "Tic-tac-toe kiosk",
     how: "Beat the board — win and the avatar breaks into a dance.",
     anchor: anchorNear(KIOSK_PLACES.tictactoe.x, KIOSK_PLACES.tictactoe.z),
+    at: { x: KIOSK_PLACES.tictactoe.x, z: KIOSK_PLACES.tictactoe.z },
     modal: "tictactoe",
   },
   {
@@ -74,6 +88,7 @@ export const ATTRACTIONS: Attraction[] = [
     label: "Stack match kiosk",
     how: "Six pairs face down. Clear it in twelve turns for the big routine.",
     anchor: anchorNear(KIOSK_PLACES.match.x, KIOSK_PLACES.match.z),
+    at: { x: KIOSK_PLACES.match.x, z: KIOSK_PLACES.match.z },
     modal: "match",
   },
   {

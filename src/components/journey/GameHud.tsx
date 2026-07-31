@@ -34,12 +34,14 @@ type Snapshot = {
 export default function GameHud({
   active,
   nav,
-  onWalkTo,
+  onGoTo,
   panelOpen = false,
 }: {
   active: boolean;
   nav: Nav;
-  onWalkTo: (anchor: Anchor) => void;
+  /** Put the avatar at `anchor`. `look` is the game itself, when it has a
+   *  place of its own — the arrival shot turns to frame it. */
+  onGoTo: (anchor: Anchor, look?: { x: number; z: number }) => void;
   /** A résumé panel is open on the right. The play controls live in that same
    *  column, so they step aside — reading about Sujit is the point of the site,
    *  and the games shouldn't sit on top of it. */
@@ -237,7 +239,7 @@ export default function GameHud({
                     ) : atIt ? (
                       <span className="jrnGameAt">here</span>
                     ) : (
-                      <button className="jrnGameBtn" onClick={() => onWalkTo(a.anchor!)}>
+                      <button className="jrnGameBtn" onClick={() => onGoTo(a.anchor!, a.at)}>
                         Go
                       </button>
                     )}

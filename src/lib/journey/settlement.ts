@@ -7,6 +7,7 @@
 
 import { centerlineXZ } from "./trail";
 import { BUILT_SITES } from "./projects";
+import { ASK_TERMINAL } from "./ask";
 
 // "project" plots are the PROJECT LANDMARKS (projects.ts). They live in this
 // list purely so they inherit the two things every building here gets for free:
@@ -111,12 +112,11 @@ export const FOUNTAINS: { x: number; z: number; grand: boolean }[] = [
   { x: 6.98, z: -79.96, grand: true },
 ];
 
-// The social-board ring around the GRAND fountain — the town square's front
-// door. An arc of four across the wedge's far side, every board facing back
-// over the water at the junction, so a visitor walking in from any road reads
-// all of them (square_audit.ts: ≥ 6.6 m clear of every lane, ≥ 2.8 m from the
-// square's lamp pair). SocialSignposts.tsx renders them; StreetLamps.tsx
-// keeps road posts off them.
+// Reserved low-profile positions around the GRAND fountain. These began as the
+// social-board arc; TownSquare.tsx now reuses three for glowing career
+// milestones. The audited spacing remains valuable: every point is ≥ 6.6 m
+// clear of a lane and ≥ 2.8 m from the square lamp pair. StreetLamps.tsx keeps
+// road posts off the full set.
 export const SOCIAL_BOARDS: { x: number; z: number }[] = [
   { x: 5.57, z: -84.03 },
   { x: 8.86, z: -83.83 },
@@ -244,6 +244,22 @@ function buildPlots(): Plot[] {
       scale: 1, // built in world metres
       flat: true,
     });
+  });
+
+  // The ASK TERMINAL beside the Ask stop — same deal: a level pad and a hole in
+  // the trees, with AskTerminal.tsx building the structure. Appended last, after
+  // the landmarks, so every index above stays where it was.
+  out.push({
+    x: ASK_TERMINAL.x,
+    z: ASK_TERMINAL.z,
+    faceX: ASK_TERMINAL.fx,
+    faceZ: ASK_TERMINAL.fz,
+    yaw: ASK_TERMINAL.yaw,
+    kind: "project",
+    variant: SPEC.length + RURAL.length + 1 + BUILT_SITES.length,
+    clearR: ASK_TERMINAL.clearR,
+    scale: 1,
+    flat: true,
   });
 
   return out;

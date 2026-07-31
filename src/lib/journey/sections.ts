@@ -3,6 +3,31 @@
 // scalar some placements still ride). The measured fractions below come from
 // the graph itself (scratchpad len.ts) — re-measure if the road network moves.
 
+// World-space offsets from each stop node to its physical signboard. Shared by
+// TrailPath (placement) and the teleport camera (framing), so every map arrival
+// looks from the road toward the same board the visitor sees. Ask deliberately
+// has no offset: its terminal screen is the destination instead.
+export const STOP_SIGN_OFFSETS: Record<string, [number, number]> = {
+  // The Root lives at the existing Town Square introduction, not at the old
+  // northern trailhead. Keep the internal `start` id for compatibility while
+  // resolving its world position to the Crossroads.
+  // Centre the Root board on the opening camera → grand-fountain sightline.
+  start: [6.2, -5.4],
+  thesis: [-2.8, 0],
+  experience: [2.4, 0],
+  skills: [-2.6, 0],
+  contact: [0, -2.6],
+};
+
+export const JUNCTION_SIGN_OFFSETS: Record<string, [number, number]> = {
+  village: [-3.4, -0.4],
+  villagegate: [2.3, -2.3],
+  cross: [-1.9, -5.7],
+};
+
+// Off-road opening pose directly in front of the Architect board.
+export const PLAZA_AVATAR_POSITION = { x: 4.25, z: -75.85 } as const;
+
 export type JourneyStop = {
   id: string;
   label: string; // short nav label — the PLACE in the world
@@ -13,17 +38,17 @@ export type JourneyStop = {
 };
 
 // Every stop is a place in the world AND a section of the résumé. The place
-// names alone ("Old Town", "The Arc") told a first-time visitor nothing, so each
+// names alone ("The Root", "The Arc") told a first-time visitor nothing, so each
 // carries a `sub` that says what's there — shown under the label in the Trail
 // menu, on the in-world signpost, and in the map tooltip.
 export const STOPS: JourneyStop[] = [
-  // The trailhead panel lives in the OLD TOWN — the street's head, fronted by
-  // the town library (the town square itself now sits at the Crossroads).
+  // The Root is the existing spawn/introduction at the Town Square. Its
+  // internal id remains `start` because older route and content data use it.
   {
     id: "start",
-    label: "Old Town",
-    sub: "Who I am — start here",
-    marker: "Old Town",
+    label: "The Root",
+    sub: "Introduction — start here",
+    marker: "The Root",
     zone: "meadow",
     u: 0.0,
   },
@@ -76,3 +101,9 @@ export const STOPS: JourneyStop[] = [
 ];
 
 export const stopById = (id: string) => STOPS.find((s) => s.id === id);
+
+/** World node for a resume stop. The first resume section is presented at the
+ * existing Town Square spawn, while `start` remains the stable content id. */
+export function stopNodeId(id: string): string {
+  return id === "start" ? "cross" : id;
+}

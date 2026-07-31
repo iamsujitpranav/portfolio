@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Billboard, useCursor } from "@react-three/drei";
 import { height } from "@/lib/journey/terrain";
 import { avatarPos } from "@/lib/journey/game";
 import { PROJECT_SITES, projectPanelId, type ProjectStructure } from "@/lib/journey/projects";
 import { B, GlowPane } from "./buildingKit";
+import type { DisplayFocus } from "./CameraRig";
+import MatrixSignFace from "./MatrixSignFace";
 
 // THE PROJECT LANDMARKS — the résumé, built.
 //
@@ -42,10 +44,11 @@ const SCREEN_AMBER = "#ffc98a";
 /** How close the avatar has to be for a plaque to light up and show its line. */
 const NEAR_M = 22;
 
-// --- 1. The Foundry — monolith → microservices ---------------------------------
-// One big hall coming apart under scaffolding, its work moving out into small
-// independent workshops that are still joined by lit conduits. Half-demolished
-// on the right, where the scaffold stands; the workshops face the road.
+// --- 1. The Foundry — large-scale monolith modernization -----------------------
+// One big hall being REBUILT under scaffolding — not demolished: the modernization
+// kept the monolith running, it did not decompose it into services. Newer
+// workshops stand alongside it, joined by lit conduits. Open-ended on the right,
+// where the scaffold stands; the workshops face the road.
 function Foundry() {
   const shops = [-5.2, 0, 5.2];
   return (
@@ -567,27 +570,45 @@ function Plaque({
   project,
   panelId,
   z,
+  fx,
+  fz,
   onPick,
 }: {
   title: string;
   project: string;
   panelId: string;
   z: number;
-  onPick: (panelId: string) => void;
+  fx: number;
+  fz: number;
+  onPick: (panelId: string, focus: DisplayFocus) => void;
 }) {
-  const btn = useRef<HTMLButtonElement>(null);
   const near = useRef(false);
+  const [isNear, setIsNear] = useState(false);
   const world = useRef(new THREE.Vector3());
   const group = useRef<THREE.Group>(null);
+  const [hovered, setHovered] = useState(false);
+  useCursor(hovered, "pointer", "auto");
+
+  const choose = () => {
+    group.current?.getWorldPosition(world.current);
+    onPick(panelId, {
+      id: panelId,
+      x: world.current.x,
+      y: world.current.y + 1.72,
+      z: world.current.z,
+      fx,
+      fz,
+    });
+  };
 
   useFrame(() => {
-    if (!btn.current || !group.current) return;
+    if (!group.current) return;
     group.current.getWorldPosition(world.current);
     const d = Math.hypot(avatarPos.x - world.current.x, avatarPos.z - world.current.z);
     const isNear = d < NEAR_M;
     if (isNear !== near.current) {
       near.current = isNear;
-      btn.current.dataset.near = isNear ? "1" : "0";
+      setIsNear(isNear);
     }
   });
 
@@ -597,29 +618,34 @@ function Plaque({
         <boxGeometry args={[0.12, 1.7, 0.12]} />
         <meshStandardMaterial color={TIMBER_DK} roughness={1} flatShading />
       </mesh>
-      <mesh position={[0, 1.72, 0.03]} rotation={[-0.12, 0, 0]} castShadow frustumCulled={false}>
-        <boxGeometry args={[1.7, 0.62, 0.08]} />
-        <meshStandardMaterial color={TIMBER} roughness={1} flatShading />
-      </mesh>
-      <Html
-        position={[0, 2.35, 0]}
-        center
-        distanceFactor={16}
-        occlude={false}
-        zIndexRange={[18, 0]}
-        style={{ pointerEvents: "auto" }}
+      <Billboard
+        position={[0, 1.72, 0.03]}
+        follow
+        lockX
+        lockZ
+        frustumCulled={false}
       >
-        <button
-          ref={btn}
-          className="jrnPlaque"
-          data-near="0"
-          onClick={() => onPick(panelId)}
-          title={`${title} — ${project}`}
+        <group
+          scale={isNear || hovered ? 1.05 : 1}
+          onClick={(event) => { event.stopPropagation(); choose(); }}
+          onPointerOver={(event) => { event.stopPropagation(); setHovered(true); }}
+          onPointerOut={() => setHovered(false)}
         >
-          <span className="jrnPlaqueTitle">{title}</span>
-          <span className="jrnPlaqueSub">{project}</span>
-        </button>
-      </Html>
+          <mesh castShadow frustumCulled={false}>
+            <boxGeometry args={[2.35, 0.88, 0.08]} />
+            <meshStandardMaterial color="#020705" emissive="#063719" emissiveIntensity={isNear || hovered ? 0.72 : 0.4} metalness={0.68} roughness={0.35} />
+          </mesh>
+          <MatrixSignFace
+            width={2.35}
+            height={0.88}
+            title={title}
+            subtitle={project}
+            action="CLICK BOARD TO OPEN"
+            system="PROJECT_ACCESS"
+            active={isNear || hovered}
+          />
+        </group>
+      </Billboard>
     </group>
   );
 }
@@ -641,7 +667,13 @@ function Structure({ kind }: { kind: Exclude<ProjectStructure, null> }) {
   }
 }
 
-export default function Landmarks({ onPick }: { onPick: (panelId: string) => void }) {
+export default function Landmarks({
+  onPick,
+  showPlaques = true,
+}: {
+  onPick: (panelId: string, focus: DisplayFocus) => void;
+  showPlaques?: boolean;
+}) {
   return (
     <group>
       {PROJECT_SITES.map((s) => (
@@ -653,13 +685,17 @@ export default function Landmarks({ onPick }: { onPick: (panelId: string) => voi
           {s.structure && <Structure kind={s.structure} />}
           {/* The Reading Room hangs on the library, which is already standing —
               its site IS the plaque spot, so the board sits at the origin. */}
-          <Plaque
-            title={s.title}
-            project={s.project}
-            panelId={projectPanelId(s.id)}
-            z={s.structure ? s.clearR * 0.62 : 0}
-            onPick={onPick}
-          />
+          {showPlaques && (
+            <Plaque
+              title={s.title}
+              project={s.project}
+              panelId={projectPanelId(s.id)}
+              z={s.structure ? s.clearR * 0.62 : 0}
+              fx={s.fx}
+              fz={s.fz}
+              onPick={onPick}
+            />
+          )}
         </group>
       ))}
     </group>

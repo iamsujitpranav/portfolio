@@ -49,6 +49,9 @@ import {
   GRAVITY,
 } from "@/lib/journey/game";
 import { applyTopSnow, avatarSnowUniforms } from "@/lib/journey/snowcover";
+import { warp, WARP_MATERIALISE } from "@/lib/journey/warp";
+import { sidestepFor, drift } from "@/lib/journey/traffic";
+import { PLAZA_AVATAR_POSITION } from "@/lib/journey/sections";
 
 // Shared, mutable navigation state. The Avatar owns advancing the ROUTE CURSOR
 // (which graph edge it is on and how far along); the camera reads the cursor;
@@ -149,6 +152,10 @@ function makeFlakeTexture() {
 }
 
 const REVEAL_DURATION = 1.9; // seconds, feet → head
+// The camera-facing portrait fill in Scene.tsx uses this private render layer.
+// Avatar meshes keep layer 0 too, so every existing world light still reaches
+// them; layer 1 only adds the soft facial fill without lighting the snow/props.
+export const AVATAR_LIGHT_LAYER = 1;
 const WALK_CADENCE = 2 * Math.PI * WALK.cadence; // radians/sec
 const XAXIS = new THREE.Vector3(1, 0, 0);
 const YAXIS = new THREE.Vector3(0, 1, 0);
@@ -458,6 +465,7 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
     gltf.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
+      m.layers.enable(AVATAR_LIGHT_LAYER);
       m.castShadow = true;
       m.frustumCulled = false;
       const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -472,7 +480,26 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
   }, [gltf]);
 
   // --- bottom→top reveal via a rising world-space clipping plane ------------
-  const reveal = useRef({ t: 0, active: false, baseY: 0, done: false });
+  // Played twice over: once on load (the title reveal, which is what hands the
+  // journey its `onReady`) and again on every map warp, where it's the avatar
+  // materialising at the new spot. `first` keeps the second kind from firing
+  // the ready callback all over again; `dur` lets the warp play it faster.
+  const reveal = useRef({
+    t: 0,
+    active: false,
+    baseY: 0,
+    done: false,
+    first: true,
+    dur: REVEAL_DURATION,
+  });
+  // Last warp this walker has reacted to (see the position block below).
+  const warpSeen = useRef(warp.seq);
+  // Keep a teleported avatar oriented toward the thing the arrival introduced
+  // (normally the destination board) until locomotion gives him a new heading.
+  const warpFacing = useRef(false);
+  // Start off-road on the plaza. On the first walk, blend back onto the nearby
+  // graph anchor so the avatar never teleports onto the road.
+  const plazaSpawnBlend = useRef(1);
   const clipPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, -1, 0), 0), []);
 
   const setClipping = (on: boolean) => {
@@ -493,10 +520,17 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
     gl.localClippingEnabled = true;
     // Stand at the spawn node and begin the reveal.
     resetCursor(nav);
+    plazaSpawnBlend.current = 1;
     nav.progress = spineProgress(nav.edgeId, nav.tAB);
-    const p0y =
-      edgeCurves.get(nav.edgeId)?.getPointAt(THREE.MathUtils.clamp(nav.tAB, 0, 1)).y ?? 0;
-    reveal.current = { t: 0, active: true, baseY: p0y, done: false };
+    const p0y = walkHeight(PLAZA_AVATAR_POSITION.x, PLAZA_AVATAR_POSITION.z) + 0.1;
+    reveal.current = {
+      t: 0,
+      active: true,
+      baseY: p0y,
+      done: false,
+      first: true,
+      dur: REVEAL_DURATION,
+    };
     clipPlane.constant = p0y - 0.15; // start fully hidden (show nothing)
     setClipping(true);
     onLoaded?.();
@@ -508,6 +542,10 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
   // Kick sequence: elapsed clip time, whether the impact frame has fired yet,
   // and the blend weight that swaps the run/idle pose out for the kick.
   const kick = useRef({ t: 0, fired: false, weight: 0, spin: 0, playing: false, wait: 0 });
+  // Sidestep around traffic: how far off the centreline the body currently is,
+  // and which side of the vehicle it committed to going round (kept so it can't
+  // dither left-right while passing). See lib/journey/traffic.ts.
+  const dodge = useRef({ off: 0, side: 0 });
   // LIVING-snow simulation (see snowcover.ts): how much snow he currently
   // carries, edge-detect memory for the impulse sheds, and the schedules for
   // the periodic full-body SHAKE and the smaller random clump-sloughs.
@@ -906,6 +944,64 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
     if (g && ec) {
       const tt = THREE.MathUtils.clamp(nav.tAB, 0, 1);
       const p = ec.getPointAt(tt);
+
+      // --- a map warp just moved the ground under this body ------------------
+      // The cursor was picked up and put down somewhere else entirely, with no
+      // walk in between to carry anything across. So nothing that eases may
+      // ease: the traffic sidestep is about vehicles that are now half a map
+      // away, and the facing is settled below rather than spun into place.
+      const justWarped = warpSeen.current !== warp.seq;
+      if (justWarped) {
+        warpSeen.current = warp.seq;
+        warpFacing.current = true;
+        // A throw target belongs to the place we just left. Do not let a
+        // teleport that interrupts its wind-up turn the arriving body away
+        // from the new destination board.
+        faceTarget.active = false;
+        // Returning to The Architect deliberately recreates the opening pose:
+        // the cursor remains on its nearby road anchor while the visible body
+        // stands in the plaza, centred between the camera and the board.
+        plazaSpawnBlend.current = warp.pose === "architect" ? 1 : 0;
+        dodge.current.off = 0;
+        dodge.current.side = 0;
+      }
+
+      if (moving) {
+        warpFacing.current = false;
+        plazaSpawnBlend.current = Math.max(0, plazaSpawnBlend.current - delta * 0.9);
+      }
+
+      // --- step around traffic --------------------------------------------
+      // The route keeps the avatar on the centreline; this displaces the BODY
+      // sideways far enough to clear anything parked or driving in the lane,
+      // then eases it back. Solved against the centreline point (not the
+      // already-displaced body) so it settles instead of oscillating.
+      const tanN = ec.getTangentAt(tt);
+      const hl = Math.hypot(tanN.x, tanN.z) || 1;
+      const hx = (tanN.x * nav.dir) / hl;
+      const hz = (tanN.z * nav.dir) / hl;
+      const dg = dodge.current;
+      const prevOff = dg.off;
+      if (moving) {
+        const want = sidestepFor(p.x, p.z, hx, hz, dg.side);
+        dg.side = want.side;
+        // ~0.22 s to commit to the manoeuvre: quick enough to clear an
+        // oncoming pickup (5.8 m/s of closing speed at a jog), slow enough to
+        // read as a step aside rather than a teleport.
+        dg.off += (want.offset - dg.off) * Math.min(1, delta * 4.5);
+      } else {
+        // Traffic avoidance belongs to locomotion, not to a place. A nearby
+        // vehicle must never push an idle avatar away from a board, attraction,
+        // or any other resting point anywhere on the map. Vehicles already
+        // brake for the published avatar position while the avatar stands still.
+        dg.off = 0;
+        dg.side = 0;
+      }
+      drift.lateral = dg.off; // the camera frames off the centreline — tell it
+      const spawnBlend = plazaSpawnBlend.current;
+      const px = THREE.MathUtils.lerp(p.x, PLAZA_AVATAR_POSITION.x, spawnBlend) + hz * dg.off;
+      const pz = THREE.MathUtils.lerp(p.z, PLAZA_AVATAR_POSITION.z, spawnBlend) - hx * dg.off;
+
       // Plant on the RESAMPLED ground at the avatar's XZ, not the walk curve's
       // baked Y: the Catmull-Rom curve undershoots the terrain on hills, so the
       // feet sank below the (re-sampled) path ribbon even at rest. FOOT_CLEAR
@@ -916,40 +1012,81 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
       const WALK_LIFT = 0.16;
       // walkHeight, not height: over the pond the walkable ground is the
       // bridge DECK, not the basin floor beneath it.
-      const groundY = walkHeight(p.x, p.z);
+      const groundY = walkHeight(px, pz);
       const bob = bobN * WALK.bob * w.amount;
       g.position.set(
-        p.x,
+        px,
         groundY + FOOT_CLEAR + bob + WALK_LIFT * w.amount + jy - lu * 0.12,
-        p.z,
+        pz,
       );
-      avatarPos.x = p.x;
+      // The DISPLACED position, not the centreline: the vehicles brake off
+      // avatarPos and the key light tracks it, so both have to see where the
+      // body actually is.
+      avatarPos.x = px;
       avatarPos.y = g.position.y;
-      avatarPos.z = p.z;
+      avatarPos.z = pz;
+
+      // MATERIALISE. Replay the load reveal, quicker, so a warp arrival grows
+      // out of the snow feet-first instead of popping into frame — which is
+      // what the camera is holding face-on to watch. `first: false` keeps this
+      // from firing the journey's ready callback a second time.
+      if (justWarped) {
+        reveal.current = {
+          t: 0,
+          active: true,
+          baseY: g.position.y,
+          done: true, // already walkable: a materialise must not block a walk
+          first: false,
+          dur: WARP_MATERIALISE,
+        };
+        clipPlane.constant = g.position.y - 0.15;
+        setClipping(true);
+      }
 
       // Face travel direction while walking — and while squaring up to kick,
       // since the obstacle is straight down-trail. Standing still, turn to face
-      // whatever a snowball throw is aimed at, else the camera (the chase-cam
-      // sits behind the avatar, so otherwise the visitor sees the back of a head).
+      // whatever a snowball throw is aimed at, then the board/subject a
+      // teleport introduced, else the free camera. A teleported avatar must
+      // face the destination itself, regardless of where the arrival camera is
+      // placed (and even when reduced motion suppresses that camera shot).
       let targetYaw: number;
       const aiming = !moving && faceTarget.active;
-      if (moving || blocked) {
-        const tan = ec.getTangentAt(tt);
-        const dir = nav.dir;
-        targetYaw = Math.atan2(tan.x * dir, tan.z * dir) + AVATAR_FACING_OFFSET;
+      if (justWarped) {
+        targetYaw =
+          Math.atan2(warp.lookX - px, warp.lookZ - pz) +
+          AVATAR_FACING_OFFSET;
+      } else if (moving || blocked) {
+        // Angle the body INTO the sidestep, so stepping round a van reads as
+        // steering rather than sliding sideways on ice: the true heading is the
+        // forward velocity plus the lateral one.
+        const fwdMS = moving
+          ? WALK_SPEED * TRAIL_METRES * (game.sprint ? SPRINT_MULT : 1) * (1 - 0.65 * lu)
+          : 0;
+        const latMS = (dg.off - prevOff) / Math.max(delta, 1e-4);
+        const steer =
+          fwdMS > 0.3 ? THREE.MathUtils.clamp(Math.atan2(latMS, fwdMS), -0.5, 0.5) : 0;
+        targetYaw = Math.atan2(hx, hz) + steer + AVATAR_FACING_OFFSET;
       } else if (aiming) {
         targetYaw =
-          Math.atan2(faceTarget.x - p.x, faceTarget.z - p.z) + AVATAR_FACING_OFFSET;
+          Math.atan2(faceTarget.x - px, faceTarget.z - pz) + AVATAR_FACING_OFFSET;
+      } else if (warpFacing.current) {
+        targetYaw =
+          Math.atan2(warp.lookX - px, warp.lookZ - pz) +
+          AVATAR_FACING_OFFSET;
       } else {
         targetYaw =
-          Math.atan2(camera.position.x - p.x, camera.position.z - p.z) +
+          Math.atan2(camera.position.x - px, camera.position.z - pz) +
           AVATAR_FACING_OFFSET;
       }
       // Shortest-arc smoothing — snappy mid-walk or snapping to a throw, an
-      // unhurried turn when just idling toward the camera.
+      // unhurried turn when just idling toward the camera. A warp is the one
+      // case with nothing to smooth FROM: the previous facing belonged to a
+      // spot somewhere else on the map, so it's taken whole.
       let dyaw = targetYaw - w.yaw;
       dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
-      w.yaw += dyaw * Math.min(1, delta * (moving || blocked || aiming ? 6 : 3.5));
+      w.yaw = justWarped
+        ? targetYaw
+        : w.yaw + dyaw * Math.min(1, delta * (moving || blocked || aiming ? 6 : 3.5));
       // YXZ = yaw first, then a facing-relative forward pitch — the stumble
       // trip-lean (squared so it snaps in hard and eases out).
       g.rotation.order = "YXZ";
@@ -957,18 +1094,23 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
       g.rotation.x = lu * lu * 0.42;
     }
 
-    // Reveal animation.
+    // Reveal animation — the load reveal, or a warp materialise.
     const r = reveal.current;
     if (r.active) {
-      r.t += delta / REVEAL_DURATION;
+      r.t += delta / r.dur;
       const e = 1 - Math.pow(1 - Math.min(r.t, 1), 3); // easeOutCubic
       clipPlane.constant = THREE.MathUtils.lerp(r.baseY - 0.15, r.baseY + 2.1, e);
       if (r.t >= 1) {
         r.active = false;
         r.done = true;
         setClipping(false);
-        nav.revealed = true;
-        onReady?.();
+        // Only the FIRST one opens the journey. A materialise reaching the top
+        // of the head is not the world finishing loading, and reporting it as
+        // one would reset the trail to its opening card mid-visit.
+        if (r.first) {
+          nav.revealed = true;
+          onReady?.();
+        }
       }
     }
   });
@@ -988,6 +1130,9 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
 function CapsuleWalker({ edgeCurves, nav, onLoaded, onReady, onArrive }: Props) {
   const group = useRef<THREE.Group>(null);
   const walk = useRef({ yaw: 0 });
+  const plazaSpawnBlend = useRef(1);
+  const warpSeen = useRef(warp.seq);
+  const warpFacing = useRef(false);
   const edgeLens = useMemo(() => {
     const m = new Map<string, number>();
     edgeCurves.forEach((c, id) => m.set(id, c.getLength()));
@@ -995,6 +1140,7 @@ function CapsuleWalker({ edgeCurves, nav, onLoaded, onReady, onArrive }: Props) 
   }, [edgeCurves]);
   useEffect(() => {
     resetCursor(nav);
+    plazaSpawnBlend.current = 1;
     nav.progress = spineProgress(nav.edgeId, nav.tAB);
     onLoaded?.();
     nav.revealed = true;
@@ -1022,12 +1168,26 @@ function CapsuleWalker({ edgeCurves, nav, onLoaded, onReady, onArrive }: Props) 
     if (g && ec) {
       const tt = THREE.MathUtils.clamp(nav.tAB, 0, 1);
       const p = ec.getPointAt(tt);
-      g.position.set(p.x, p.y + 0.9 + jy - lu * 0.12, p.z);
-      avatarPos.x = p.x;
+      const justWarped = warpSeen.current !== warp.seq;
+      if (justWarped) {
+        warpSeen.current = warp.seq;
+        warpFacing.current = true;
+        plazaSpawnBlend.current = warp.pose === "architect" ? 1 : 0;
+      } else if (moving) {
+        warpFacing.current = false;
+        plazaSpawnBlend.current = Math.max(0, plazaSpawnBlend.current - delta * 0.9);
+      }
+      const px = THREE.MathUtils.lerp(p.x, PLAZA_AVATAR_POSITION.x, plazaSpawnBlend.current);
+      const pz = THREE.MathUtils.lerp(p.z, PLAZA_AVATAR_POSITION.z, plazaSpawnBlend.current);
+      const groundY = walkHeight(px, pz);
+      g.position.set(px, groundY + 0.9 + jy - lu * 0.12, pz);
+      avatarPos.x = px;
       avatarPos.y = g.position.y;
-      avatarPos.z = p.z;
+      avatarPos.z = pz;
       const tan = ec.getTangentAt(tt);
-      walk.current.yaw = Math.atan2(tan.x * nav.dir, tan.z * nav.dir);
+      walk.current.yaw = warpFacing.current
+        ? Math.atan2(warp.lookX - px, warp.lookZ - pz) + AVATAR_FACING_OFFSET
+        : Math.atan2(tan.x * nav.dir, tan.z * nav.dir) + AVATAR_FACING_OFFSET;
       g.rotation.order = "YXZ";
       g.rotation.y = walk.current.yaw;
       g.rotation.x = lu * lu * 0.42;

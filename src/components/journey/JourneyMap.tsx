@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   EDGES,
   edgeSamplesXZ,
@@ -10,7 +11,7 @@ import {
   spineUToPoint,
   SPINE_EDGE_IDS,
 } from "@/lib/journey/graph";
-import { STOPS } from "@/lib/journey/sections";
+import { STOPS, stopNodeId } from "@/lib/journey/sections";
 import { SETTLEMENT_PLOTS, FOUNTAINS, LIBRARY } from "@/lib/journey/settlement";
 import { PROJECT_SITES } from "@/lib/journey/projects";
 import { POND, CURL_SHEET } from "@/lib/journey/config";
@@ -26,9 +27,14 @@ import { avatarPos } from "@/lib/journey/game";
 // there is to find — every résumé stop, every junction, both fountains, and
 // every game (kiosks, curling, snowball targets, hidden gems, the obstacle
 // run) — plus a live, pulsing you-are-here dot. The whole map fluidly grows
-// under the pointer, and hovering any marker pops a springy tooltip; clicking
-// walks the avatar there (stops/junctions route by node, game markers route to
-// their exact path point).
+// under the pointer, and hovering any marker pops a springy tooltip.
+//
+// Clicking TELEPORTS the avatar there (lib/journey/warp.ts) — the map is the
+// one place in this world that doesn't walk you, because a map you have to wait
+// ninety seconds to use is not doing its job. Stops and junctions land on their
+// node; every other marker lands on its own path anchor and hands its WORLD
+// POSITION along as the `look`, so the arrival shot ends framed on the thing
+// that was clicked rather than on the road it stands beside.
 
 // World→SVG: x maps straight across, z maps straight down (the trail walks
 // "up" the map toward the summit). Strokes/labels are in px via
@@ -70,6 +76,27 @@ function tourXZ(u: number, side = 0, lat = 0): { x: number; z: number; anchor: A
 
 type Tip = { x: number; z: number; title: string; sub: string };
 
+type MapCenter = { x: number; z: number };
+
+// Keep enough of the world visible to retain the minimap's sense of place, but
+// crop it just enough that dragging has useful travel in every direction.
+const MAP_VIEW_SCALE = 0.72;
+const DRAG_SLOP = 5;
+
+function clampMapCenter(
+  center: MapCenter,
+  bounds: { x: number; z: number; w: number; h: number },
+  viewW: number,
+  viewH: number,
+): MapCenter {
+  const halfW = viewW / 2;
+  const halfH = viewH / 2;
+  return {
+    x: Math.min(bounds.x + bounds.w - halfW, Math.max(bounds.x + halfW, center.x)),
+    z: Math.min(bounds.z + bounds.h - halfH, Math.max(bounds.z + halfH, center.z)),
+  };
+}
+
 export default function JourneyMap({
   active,
   activeId,
@@ -79,12 +106,24 @@ export default function JourneyMap({
   active: boolean;
   activeId: string;
   onPick: (id: string) => void;
-  onPickAnchor: (anchor: Anchor) => void;
+  /** `look` is what the marker actually depicts, in world XZ — the building,
+   *  the kiosk, the sheet of ice. Omitted for markers that sit on the road
+   *  itself, where there's nothing beside it to turn toward. */
+  onPickAnchor: (anchor: Anchor, look?: { x: number; z: number }) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [tip, setTip] = useState<Tip | null>(null);
   const dotRef = useRef<SVGCircleElement>(null);
   const ringRef = useRef<SVGCircleElement>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
 
   // ViewBox hugging every edge sample AND every off-road landmark (buildings,
   // fountains — the library stands past the street's head, so edges alone
@@ -113,6 +152,103 @@ export default function JourneyMap({
       h: maxZ - minZ + pad * 2,
     };
   }, []);
+
+  const viewW = vb.w * MAP_VIEW_SCALE;
+  const viewH = vb.h * MAP_VIEW_SCALE;
+  const [mapCenter, setMapCenter] = useState<MapCenter>(() =>
+    clampMapCenter({ x: avatarPos.x, z: avatarPos.z }, vb, viewW, viewH),
+  );
+  const [dragging, setDragging] = useState(false);
+  const view = {
+    x: mapCenter.x - viewW / 2,
+    z: mapCenter.z - viewH / 2,
+    w: viewW,
+    h: viewH,
+  };
+
+  const centerOnAvatar = useCallback(() => {
+    setMapCenter(clampMapCenter({ x: avatarPos.x, z: avatarPos.z }, vb, viewW, viewH));
+  }, [vb, viewW, viewH]);
+
+  const panBy = useCallback(
+    (dx: number, dz: number) => {
+      setMapCenter((center) =>
+        clampMapCenter({ x: center.x + dx, z: center.z + dz }, vb, viewW, viewH),
+      );
+    },
+    [vb, viewW, viewH],
+  );
+
+  const onPointerDown = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      moved: false,
+    };
+  }, []);
+
+  const onPointerMove = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const dx = event.clientX - drag.lastX;
+      const dy = event.clientY - drag.lastY;
+      drag.lastX = event.clientX;
+      drag.lastY = event.clientY;
+
+      if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= DRAG_SLOP) {
+        drag.moved = true;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setDragging(true);
+        setTip(null);
+      }
+      if (!drag.moved) return;
+
+      // preserveAspectRatio="meet" can letterbox the SVG. Derive the actual
+      // screen-to-world scale so a diagonal drag tracks the pointer exactly.
+      const rect = event.currentTarget.getBoundingClientRect();
+      const scale = Math.min(rect.width / viewW, rect.height / viewH);
+      if (scale > 0) panBy(-dx / scale, -dy / scale);
+    },
+    [panBy, viewW, viewH],
+  );
+
+  const finishDrag = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+    setDragging(false);
+    if (drag.moved) {
+      // A pointer drag ends with a synthetic click. Swallow that one click so
+      // releasing over a marker never teleports the visitor by accident.
+      suppressClick.current = true;
+      window.setTimeout(() => {
+        suppressClick.current = false;
+      }, 0);
+    }
+  }, []);
+
+  const onMapKeyDown = useCallback(
+    (event: ReactKeyboardEvent<SVGSVGElement>) => {
+      const step = event.shiftKey ? 0.18 : 0.08;
+      if (event.key === "ArrowLeft") panBy(-viewW * step, 0);
+      else if (event.key === "ArrowRight") panBy(viewW * step, 0);
+      else if (event.key === "ArrowUp") panBy(0, -viewH * step);
+      else if (event.key === "ArrowDown") panBy(0, viewH * step);
+      else if (event.key === "Home") centerOnAvatar();
+      else return;
+      event.preventDefault();
+      setTip(null);
+    },
+    [centerOnAvatar, panBy, viewW, viewH],
+  );
 
   // Live you-are-here dot — written straight to the SVG nodes (no React churn).
   // Only touch the DOM when the avatar has actually moved (a 0.1 m grid): idle is
@@ -145,7 +281,7 @@ export default function JourneyMap({
   const stops = useMemo(
     () =>
       STOPS.map((s) => {
-        const n = nodeById(s.id);
+        const n = nodeById(stopNodeId(s.id));
         return n ? { id: s.id, label: s.label, sub: s.sub, x: n.x, z: n.z } : null;
       }).filter(Boolean) as {
         id: string;
@@ -158,7 +294,7 @@ export default function JourneyMap({
   );
   const pois = useMemo(
     () =>
-      ["village", "villagegate", "waterfront", "cross"]
+      ["village", "villagegate", "waterfront"]
         .map((id) => nodeById(id))
         .filter(Boolean)
         .map((n) => ({
@@ -168,8 +304,8 @@ export default function JourneyMap({
           z: n!.z,
           sub:
             n!.id === "cross"
-              ? "Five roads meet at the square — click to walk here"
-              : "Junction — click to walk here",
+              ? "Five roads meet at the square — click to teleport here"
+              : "Junction — click to teleport here",
         })),
     [],
   );
@@ -191,7 +327,7 @@ export default function JourneyMap({
         x: KIOSK_PLACES[k].x,
         z: KIOSK_PLACES[k].z,
         title: a.label,
-        sub: "Mini-game kiosk — click to walk over",
+        sub: "Mini-game kiosk — click to teleport in",
         anchor: a.anchor,
       };
     });
@@ -201,7 +337,7 @@ export default function JourneyMap({
       x: (CURL_SHEET.hackX + CURL_SHEET.buttonX) / 2,
       z: (CURL_SHEET.hackZ + CURL_SHEET.buttonZ) / 2,
       title: "Curling on the pond",
-      sub: "Frozen-pond game — click to walk over",
+      sub: "Frozen-pond game — click to teleport in",
       anchor: att("curling")!.anchor,
     };
     const snowmen = TARGETS.map((t, i) => {
@@ -212,7 +348,7 @@ export default function JourneyMap({
         x: p.x,
         z: p.z,
         title: `Snowball target ${i + 1}/${TARGETS.length}`,
-        sub: "Click to walk over, then pelt it",
+        sub: "Click to teleport in, then pelt it",
         anchor: p.anchor,
       };
     });
@@ -319,13 +455,13 @@ export default function JourneyMap({
             forecourt */}
         <g
           className="jrnMapMark jrnMapLib"
-          onClick={() => onPickAnchor(libAnchor)}
+          onClick={() => onPickAnchor(libAnchor, { x: LIBRARY.x, z: LIBRARY.z })}
           onMouseEnter={() =>
             show({
               x: LIBRARY.x,
               z: LIBRARY.z,
               title: "Town Library",
-              sub: "The old square's civic hall — click to visit",
+              sub: "The old square's civic hall — click to teleport in",
             })
           }
           onMouseLeave={hide}
@@ -343,7 +479,7 @@ export default function JourneyMap({
           <g
             key={p.id}
             className="jrnMapMark jrnMapProject"
-            onClick={() => onPickAnchor(p.anchor)}
+            onClick={() => onPickAnchor(p.anchor, { x: p.x, z: p.z })}
             onMouseEnter={() => show({ x: p.x, z: p.z, title: p.title, sub: p.project })}
             onMouseLeave={hide}
           >
@@ -359,7 +495,7 @@ export default function JourneyMap({
           <g
             key={g.key}
             className={`jrnMapMark jrnMapGame jrnMapG-${g.kind}`}
-            onClick={() => g.anchor && onPickAnchor(g.anchor)}
+            onClick={() => g.anchor && onPickAnchor(g.anchor, { x: g.x, z: g.z })}
             onMouseEnter={() => show({ x: g.x, z: g.z, title: g.title, sub: g.sub })}
             onMouseLeave={hide}
           >
@@ -410,7 +546,7 @@ export default function JourneyMap({
             data-active={s.id === activeId ? "1" : undefined}
             onClick={() => onPick(s.id)}
             onMouseEnter={() =>
-              show({ x: s.x, z: s.z, title: s.label, sub: `${s.sub} — click to walk here` })
+              show({ x: s.x, z: s.z, title: s.label, sub: `${s.sub} — click to teleport here` })
             }
             onMouseLeave={hide}
           >
@@ -424,9 +560,9 @@ export default function JourneyMap({
   );
 
   if (!active) return null;
-  const tipLeft = tip ? Math.min(84, Math.max(16, ((tip.x - vb.x) / vb.w) * 100)) : 0;
-  const tipTop = tip ? ((tip.z - vb.z) / vb.h) * 100 : 0;
-  const tipFlip = tip ? (tip.z - vb.z) / vb.h < 0.2 : false;
+  const tipLeft = tip ? Math.min(84, Math.max(16, ((tip.x - view.x) / view.w) * 100)) : 0;
+  const tipTop = tip ? ((tip.z - view.z) / view.h) * 100 : 0;
+  const tipFlip = tip ? (tip.z - view.z) / view.h < 0.2 : false;
 
   return (
     <div className="jrnMap" data-open={open ? "1" : undefined}>
@@ -435,34 +571,64 @@ export default function JourneyMap({
         <span className="jrnGamesChev">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <div className="jrnMapBody">
-          <svg
-            viewBox={`${vb.x} ${vb.z} ${vb.w} ${vb.h}`}
-            className="jrnMapSvg"
-            role="img"
-            aria-label="Top-down map of the road network: the town, every résumé stop, every game, the fountains, and where the avatar is right now"
-          >
-            {/* Static map — roads + all markers — memoized so hovering (which
-                only sets `tip`) never re-renders or regenerates it. */}
-            {svgLayers}
+        <>
+          {/* Nobody guesses "teleport" from a map — say it once, above the thing
+              it's about. Outside .jrnMapBody on purpose: the tooltip positions
+              itself as a percentage of that box, so anything else living in
+              there would shift every tooltip off its marker. */}
+          <p className="jrnMapHint">Drag in any direction · Click a marker to teleport</p>
+          <div className="jrnMapBody">
+            <svg
+              viewBox={`${view.x} ${view.z} ${view.w} ${view.h}`}
+              className="jrnMapSvg"
+              data-dragging={dragging ? "1" : undefined}
+              tabIndex={0}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={finishDrag}
+              onPointerCancel={finishDrag}
+              onClickCapture={(event) => {
+                if (!suppressClick.current) return;
+                event.preventDefault();
+                event.stopPropagation();
+                suppressClick.current = false;
+              }}
+              onKeyDown={onMapKeyDown}
+              role="img"
+              aria-label="Draggable top-down map of the road network. Drag or use the arrow keys to explore in any direction. Press Home to center on the avatar. Click a marker to teleport there."
+            >
+              {/* Static map — roads + all markers — memoized so hovering (which
+                  only sets `tip`) never re-renders or regenerates it. */}
+              {svgLayers}
 
-            {/* you are here — dot + pulsing halo (spawns on the Town Square) */}
-            <circle ref={ringRef} cx={-2} cy={-72} r={5} className="jrnMapYouRing" />
-            <circle ref={dotRef} cx={-2} cy={-72} r={2.6} className="jrnMapYou" />
-          </svg>
+              {/* you are here — dot + pulsing halo (spawns on the Town Square) */}
+              <circle ref={ringRef} cx={-2} cy={-72} r={5} className="jrnMapYouRing" />
+              <circle ref={dotRef} cx={-2} cy={-72} r={2.6} className="jrnMapYou" />
+            </svg>
 
-          {/* springy hover tooltip, anchored over the hovered marker */}
-          <div
-            className="jrnMapTip"
-            data-show={tip ? "1" : undefined}
-            data-flip={tipFlip ? "1" : undefined}
-            style={{ left: `${tipLeft}%`, top: `${tipTop}%` }}
-            aria-hidden={!tip}
-          >
-            <b>{tip?.title}</b>
-            <span>{tip?.sub}</span>
+            <button
+              type="button"
+              className="jrnMapLocate"
+              onClick={centerOnAvatar}
+              aria-label="Center map on my location"
+              title="Center on me (Home)"
+            >
+              ◎
+            </button>
+
+            {/* springy hover tooltip, anchored over the hovered marker */}
+            <div
+              className="jrnMapTip"
+              data-show={tip ? "1" : undefined}
+              data-flip={tipFlip ? "1" : undefined}
+              style={{ left: `${tipLeft}%`, top: `${tipTop}%` }}
+              aria-hidden={!tip}
+            >
+              <b>{tip?.title}</b>
+              <span>{tip?.sub}</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

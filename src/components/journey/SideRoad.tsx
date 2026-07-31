@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { setBlocker, dropBlocker } from "@/lib/journey/traffic";
 import { height } from "@/lib/journey/terrain";
 import { fbm, lerp, smoothstep, clamp } from "@/lib/journey/noise";
 import { buildSideRoadCurve } from "@/lib/journey/curve";
@@ -200,10 +201,17 @@ function MovingVan({ curve }: { curve: THREE.CatmullRomCurve3 }) {
       group.current.position.set(p.x, p.y, p.z);
       group.current.rotation.y = yaw.current;
     }
+    // The lane this van drives IS a walkable graph edge (start~village /
+    // village~villagegate share their geometry with this road), so the avatar can
+    // be sent straight down it — measured closest approach 0.00 m. Publish the
+    // bodywork so it gets walked around instead of through.
+    setBlocker("van", p.x, p.z, 1.05);
     const n = skyExtra.night;
     headMat.opacity = n;
     poolMat.opacity = n * 0.55;
   });
+
+  useEffect(() => () => dropBlocker("van"), []);
 
   return (
     <group ref={group}>

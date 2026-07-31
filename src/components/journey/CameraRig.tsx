@@ -6,7 +6,10 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { walkHeight } from "@/lib/journey/terrain";
 import { game } from "@/lib/journey/game";
+import { warp } from "@/lib/journey/warp";
 import type { Nav } from "./Avatar";
+
+export type DisplayFocus = { id: string; x: number; y: number; z: number; fx?: number; fz?: number };
 
 // Never let the camera dip below the ground (that's what let you "see under the
 // snow"): keep it at least this far above the terrain wherever it hovers.
@@ -40,6 +43,10 @@ export default function CameraRig({
   const fwd = useMemo(() => new THREE.Vector3(), []);
   const behind = useMemo(() => new THREE.Vector3(), []);
   const init = useRef(false);
+  const seenWarp = useRef(warp.seq);
+  const lockedTarget = useMemo(() => new THREE.Vector3(), []);
+  const lockedPosition = useMemo(() => new THREE.Vector3(), []);
+  const lockTarget = useRef(false);
 
   useFrame((_, delta) => {
     // The avatar's spot on the path graph: its current edge's curve at tAB.
@@ -63,6 +70,28 @@ export default function CameraRig({
       ctrl.target.copy(desired);
       ctrl.update();
       init.current = true;
+      return;
+    }
+
+    if (seenWarp.current !== warp.seq) {
+      seenWarp.current = warp.seq;
+      const warpCurve = edgeCurves.get(warp.destEdgeId) ?? ec;
+      const warpPoint = warpCurve.getPointAt(THREE.MathUtils.clamp(warp.destTAB, 0, 1));
+      fwd.set(warp.lookX - warpPoint.x, 0, warp.lookZ - warpPoint.z);
+      if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1);
+      fwd.normalize();
+      const dist = CHASE_FAR;
+      camera.position.set(warpPoint.x - fwd.x * dist + fwd.z * SHOULDER,  walkHeight(warpPoint.x, warpPoint.z) + EYE_Y + dist * 0.12, warpPoint.z - fwd.z * dist - fwd.x * SHOULDER);
+      // Preserve the computed arrival pose; the idle branch reapplies this
+      // lock on every subsequent frame.
+      lockedPosition.copy(camera.position);
+      lockedTarget.set(warpPoint.x + fwd.x * 0.9, walkHeight(warpPoint.x, warpPoint.z) + LOOK_Y, warpPoint.z + fwd.z * 0.9);
+      ctrl.target.copy(lockedTarget);
+      camera.lookAt(lockedTarget);
+      lockTarget.current = true;
+      init.current = true;
+      ctrl.update();
+      camera.lookAt(lockedTarget);
       return;
     }
 
@@ -94,10 +123,17 @@ export default function CameraRig({
       camera.position.lerp(behind, kicking ? 0.05 : 0.09);
       ctrl.target.lerp(desired, 0.14);
     } else {
-      // Idle: free orbit — just keep the target gliding onto the avatar.
-      ctrl.target.lerp(desired, 0.06);
+      // Idle: preserve the exact teleport frame until walking or orbiting resumes.
+      if (lockTarget.current) {
+        ctrl.target.copy(lockedTarget);
+        camera.position.copy(lockedPosition);
+      } else ctrl.target.lerp(desired, 0.06);
     }
     ctrl.update();
+    if (lockTarget.current) {
+      camera.position.copy(lockedPosition);
+      camera.lookAt(lockedTarget);
+    }
 
     // A short jolt on impact (a stumble, or a landed hurricane kick).
     if (game.shake > 0.001) {
@@ -126,6 +162,7 @@ export default function CameraRig({
       maxDistance={45}
       minPolarAngle={0.15}
       maxPolarAngle={1.4}
+      onStart={() => { lockTarget.current = false; }}
     />
   );
 }

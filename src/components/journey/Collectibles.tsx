@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { lerp } from "@/lib/journey/noise";
 import { game, pushToast } from "@/lib/journey/game";
+import { warp, warpedSince } from "@/lib/journey/warp";
 import type { Nav } from "./Avatar";
 
 // Hidden "secrets" strung along the trail — glowing gems that hover just over
@@ -15,8 +16,8 @@ import type { Nav } from "./Avatar";
 // u 0.205 (not 0.14): the tour's 0.13–0.18 stretch is the pond bridge DECK —
 // a gem there would hover over open water beside the rails (audited).
 export const SECRETS: { u: number; side: 1 | -1; fact: string }[] = [
-  { u: 0.205, side: 1, fact: "✦ 11 years shipping production systems" },
-  { u: 0.3, side: -1, fact: "✦ Turned Rails monoliths into resilient microservices" },
+  { u: 0.205, side: 1, fact: "✦ 12 years shipping production systems" },
+  { u: 0.3, side: -1, fact: "✦ Modernized large-scale Rails monoliths — 2× release velocity" },
   { u: 0.44, side: 1, fact: "✦ Builds agentic dev workflows on Claude + MCP" },
   { u: 0.58, side: -1, fact: "✦ Took recommendation engines from prototype to prod" },
   { u: 0.74, side: 1, fact: "✦ Ruby on Rails · Python · FastAPI" },
@@ -55,6 +56,7 @@ function Secret({
   const burst = useRef<THREE.Group>(null);
   const burstMat = useRef<THREE.MeshBasicMaterial>(null);
   const st = useRef({ prev: 0, taken: false, burst: 0, t: 0 });
+  const warpSeen = useRef({ seq: warp.seq });
 
   useFrame((_, raw) => {
     const dt = Math.min(raw, 0.05);
@@ -70,11 +72,12 @@ function Secret({
     // Collect when the walk crosses this u. A JUMP in the derived spine scalar
     // (rejoining the spine off a scenic loop snaps it across the whole loop
     // span) is a reposition, not a walk past — never a collect. No real frame
-    // moves more than ~0.001 of the spine, so 0.03 is a 30× margin.
+    // moves more than ~0.001 of the spine, so 0.03 is a 30× margin. A map warp
+    // says so outright, since a short one can land inside that margin.
     const progress = nav.progress;
     const prev = s.prev;
     s.prev = progress;
-    const teleported = Math.abs(progress - prev) > 0.03;
+    const teleported = warpedSince(warpSeen.current) || Math.abs(progress - prev) > 0.03;
     if (!s.taken && !teleported && Math.abs(progress - prev) > 1e-7) {
       const lo = Math.min(prev, progress);
       const hi = Math.max(prev, progress);

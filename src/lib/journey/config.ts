@@ -254,8 +254,8 @@ export const CURL_SHEET = { hackX: 20.5, hackZ: -33, buttonX: 32, buttonZ: -32.5
 // Social destinations around the town square (SocialSignposts.tsx). Email and
 // WhatsApp are built from the profile in content/resume.json.
 // TODO(user): paste the real profile URLs for these two.
-export const LINKEDIN_URL = "https://www.linkedin.com/";
-export const GITHUB_URL = "https://github.com/";
+export const LINKEDIN_URL = "https://www.linkedin.com/in/sujitpranav/";
+export const GITHUB_URL = "https://github.com/iamsujitpranav/";
 
 // Movement ------------------------------------------------------------------
 // Fraction of the full curve per second. DERIVED from the walk clip (see the
