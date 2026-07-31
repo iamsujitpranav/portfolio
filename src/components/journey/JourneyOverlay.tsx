@@ -57,6 +57,13 @@ const CLASSIC_HASH: Record<string, string> = {
 
 type Phase = "idle" | "loading" | "building" | "ready";
 
+const LOADING_MESSAGES = [
+  "Preparing the trail…",
+  "Compiling 12+ years of experience…",
+  "Loading projects and systems…",
+  "Initializing AI guide…",
+];
+
 /** Where the guided tour has got to: which beat, and whether the avatar is
  *  still walking to it or parked in front of its card. */
 type TourAt = { beat: number; phase: "teleport" | "read" } | null;
@@ -151,6 +158,18 @@ export default function JourneyOverlay() {
   const wantTour = useRef(false);
 
   const { progress } = useProgress();
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
+
+  useEffect(() => {
+    if (phase === "ready") return;
+    let index = 0;
+    setLoadingMessage(LOADING_MESSAGES[index]);
+    const timer = window.setInterval(() => {
+      index = (index + 1) % LOADING_MESSAGES.length;
+      setLoadingMessage(LOADING_MESSAGES[index]);
+    }, 2200);
+    return () => window.clearInterval(timer);
+  }, [phase]);
 
   // drei's in-world <Html> labels are portaled to <body> with a very high
   // z-index, outside this overlay's stacking context. Suppress every floating
@@ -603,6 +622,12 @@ export default function JourneyOverlay() {
           this strange snowy world is for. */}
       {phase !== "ready" && (
         <div className={`jrnGate ${phase === "building" ? "lifting" : ""}`}>
+          <div className="jrnGateTrail" aria-hidden="true">
+            <span style={{ transform: "scaleX(" + Math.max(0.04, progress / 100) + ")" }} />
+          </div>
+          <div className="jrnGateSnow" aria-hidden="true">
+            {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
+          </div>
           <div className="jrnGateInner">
             <div className="jrnGateEyebrow">Interactive 3D résumé</div>
             <h1 className="jrnGateName">{profile.name}</h1>
@@ -610,15 +635,12 @@ export default function JourneyOverlay() {
               {profile.title} · {profile.yearsExperience}+ years · {profile.location}
             </p>
             <p className="jrnGateTag">
-              Explore a winter trail through my career — every stop on the map is a
-              piece of the résumé.
+              Walk through 12+ years of engineering—one milestone, system, and story at a time.
             </p>
-            <div className="jrnRing">
+            <div className="jrnRing" role="progressbar" aria-label="Loading the 3D trail" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ transform: `scaleX(${Math.max(0.04, progress / 100)})` }} />
             </div>
-            <p className="jrnGateText">
-              {phase === "building" ? "Assembling your guide…" : "Loading the trail…"}
-            </p>
+            <p className="jrnGateText" aria-live="polite">{loadingMessage}</p>
 
             {/* The single highest-value button on the site. Most people land
                 here, admire the snow and leave without reading a word, because
@@ -662,7 +684,7 @@ export default function JourneyOverlay() {
               <div className="jrnWho">
                 <div className="jrnWhoName">{profile.name}</div>
                 <div className="jrnWhoRole">{profile.title}</div>
-                <div className="jrnWhoKicker">Résumé · walk it in 3D</div>
+                <div className="jrnWhoKicker">Résumé · Explore it in 3D</div>
               </div>
               <div className="jrnMenuTitle">The Trail</div>
               {STOPS.filter((s) => s.id !== "contact").map((s) => (

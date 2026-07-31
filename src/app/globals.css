@@ -495,9 +495,9 @@ footer a:hover { color: var(--text); }
 
 /* Loading / assembling gate — doubles as the title card: the first thing any
    visitor sees, so it has to say whose résumé this is and what the world is. */
-.jrnGate { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center;
+.jrnGate { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; overflow: hidden;
   background: radial-gradient(120% 120% at 50% 30%, #efe6d2, #cdbf9f);
-  transition: opacity 0.8s var(--ease); }
+  animation: jrnGateCool 7s var(--ease) forwards; transition: opacity 0.8s var(--ease); }
 .jrnGate.lifting { opacity: 0; pointer-events: none; }
 .jrnGateInner { display: grid; justify-items: center; gap: 0; text-align: center; padding: 0 24px; max-width: 640px; }
 .jrnGateEyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
@@ -509,9 +509,20 @@ footer a:hover { color: var(--text); }
 .jrnGateTag { font-size: 15px; line-height: 1.55; color: #4a4433; margin: 18px 0 0; max-width: 34ch;
   animation: jrnGateUp 0.7s var(--ease) 0.24s both; }
 @keyframes jrnGateUp { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
-.jrnRing { width: 220px; height: 4px; border-radius: 999px; background: rgba(23,25,31,0.12); overflow: hidden; margin-top: 34px; }
-.jrnRing span { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #b06a2c, #c22b45); transition: transform 0.25s ease; }
-.jrnGateText { margin: 14px 0 0; font-family: var(--font-mono); font-size: 13px; color: #4a4433; letter-spacing: 0.04em; }
+.jrnRing { position: relative; z-index: 1; width: min(360px, 72vw); height: 5px; border-radius: 999px; background: rgba(23,25,31,0.12); overflow: hidden; margin-top: 34px; box-shadow: 0 0 0 1px rgba(255,255,255,0.22); }
+.jrnRing span { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #b06a2c, #c22b45 58%, #d8f0ed); transition: transform 0.25s ease; }
+.jrnGateText { min-height: 1.4em; margin: 14px 0 0; font-family: var(--font-mono); font-size: 13px; color: #4a4433; letter-spacing: 0.04em; }
+.jrnGateTrail { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(42,73,91,0.1); transform: translateY(26px); }
+.jrnGateTrail::before, .jrnGateTrail::after { content: ""; position: absolute; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: rgba(42,73,91,0.17); }
+.jrnGateTrail::before { left: 8%; } .jrnGateTrail::after { right: 8%; }
+.jrnGateTrail span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, transparent, rgba(57,119,133,0.42), rgba(222,245,242,0.7)); filter: blur(0.2px); transition: transform 0.35s ease; }
+.jrnGateSnow { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: jrnSnowBegin 1.6s ease 1.1s forwards; }
+.jrnGateSnow i { position: absolute; top: -8%; left: calc(4% + (var(--flake) * 7%)); width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.72); box-shadow: 0 0 10px rgba(255,255,255,0.5); animation: jrnSnowFall calc(4s + (var(--flake) * 0.23s)) linear calc(var(--flake) * -0.4s) infinite; }
+.jrnGateSnow i:nth-child(1) { --flake: 1; } .jrnGateSnow i:nth-child(2) { --flake: 2; } .jrnGateSnow i:nth-child(3) { --flake: 3; } .jrnGateSnow i:nth-child(4) { --flake: 4; } .jrnGateSnow i:nth-child(5) { --flake: 5; } .jrnGateSnow i:nth-child(6) { --flake: 6; } .jrnGateSnow i:nth-child(7) { --flake: 7; } .jrnGateSnow i:nth-child(8) { --flake: 8; } .jrnGateSnow i:nth-child(9) { --flake: 9; } .jrnGateSnow i:nth-child(10) { --flake: 10; } .jrnGateSnow i:nth-child(11) { --flake: 11; } .jrnGateSnow i:nth-child(12) { --flake: 12; } .jrnGateSnow i:nth-child(13) { --flake: 13; } .jrnGateSnow i:nth-child(14) { --flake: 14; } .jrnGateSnow i:nth-child(15) { --flake: 15; } .jrnGateSnow i:nth-child(16) { --flake: 16; } .jrnGateSnow i:nth-child(17) { --flake: 17; } .jrnGateSnow i:nth-child(18) { --flake: 18; }
+@keyframes jrnGateCool { 0%, 35% { background: radial-gradient(120% 120% at 50% 30%, #efe6d2, #cdbf9f); } 100% { background: radial-gradient(120% 120% at 50% 30%, #cbd9e3, #738ba5 105%); } }
+@keyframes jrnSnowBegin { to { opacity: 0.72; } }
+@keyframes jrnSnowFall { from { transform: translate3d(0, -8vh, 0); } to { transform: translate3d(7vw, 112vh, 0); } }
+html:has(.jrnGate) .cursor-ring, html:has(.jrnGate) .cursor-dot { opacity: 0; }
 
 /* Skip link */
 .jrnSkip { position: absolute; z-index: 30; top: 18px; right: 20px;
