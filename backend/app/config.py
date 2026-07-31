@@ -41,7 +41,7 @@ SMTP_FROM = os.getenv("SMTP_FROM", "").strip() or SMTP_USER
 CONTACT_TO_EMAIL = os.getenv("CONTACT_TO_EMAIL", "sujitreddy0602@gmail.com").strip()
 
 # --- CORS ---
-CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:61991").split(",") if o.strip()]
 
 
 def _flag(name: str, default: str) -> bool:

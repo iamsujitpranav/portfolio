@@ -1,0 +1,147 @@
+name: sujit-portfolio-stack
+
+x-backend-environment: &backend-environment
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio}@db:5432/${POSTGRES_DB:-portfolio}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-8}
+  VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  EMBED_DIM: ${EMBED_DIM:-1024}
+  VOYAGE_MODEL: ${VOYAGE_MODEL:-voyage-3}
+  OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL:-text-embedding-3-small}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-465}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM:-}
+  CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-sujitreddy0602@gmail.com}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:61991}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+  SESSION_SECRET: ${SESSION_SECRET:-}
+  ADMIN_TOKEN_TTL: ${ADMIN_TOKEN_TTL:-604800}
+  RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-1}
+  CHAT_RATE_LIMIT: ${CHAT_RATE_LIMIT:-12/300, 60/3600}
+  CONTACT_RATE_LIMIT: ${CONTACT_RATE_LIMIT:-3/600, 10/86400}
+  LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-5/900, 20/86400}
+  TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-1}
+  CHAT_MAX_MESSAGE_CHARS: ${CHAT_MAX_MESSAGE_CHARS:-2000}
+  CHAT_MAX_TOTAL_CHARS: ${CHAT_MAX_TOTAL_CHARS:-12000}
+
+services:
+  gateway:
+    image: nginx:1.28-alpine
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-61991}:80"
+    volumes:
+      - ./deploy/nginx.docker.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:61991}
+        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
+        NEXT_PUBLIC_AVATAR_URL: ${NEXT_PUBLIC_AVATAR_URL:-}
+        NEXT_PUBLIC_ANIMATIONS_URL: ${NEXT_PUBLIC_ANIMATIONS_URL:-}
+        NEXT_PUBLIC_AVATAR_FALLBACK: ${NEXT_PUBLIC_AVATAR_FALLBACK:-}
+    restart: unless-stopped
+    init: true
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch(\"http://127.0.0.1:61991/\").then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - app
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment: *backend-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/api/health\", timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - app
+      - database
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-portfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolio}
+      POSTGRES_DB: ${POSTGRES_DB:-portfolio}
+    volumes:
+      - portfolio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portfolio} -d ${POSTGRES_DB:-portfolio}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - database
+
+  ingest:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-environment
+    command: ["python", "-m", "app.ingest"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - database
+
+volumes:
+  portfolio_pgdata:
+
+networks:
+  app:
+  database:
+    internal: true

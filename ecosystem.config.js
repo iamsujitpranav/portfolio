@@ -1,7 +1,7 @@
 // PM2 manages BOTH processes on the Hostinger VPS:
-//   portfolio-web  -> Next.js Node server  (localhost:3000)
+//   portfolio-web  -> Next.js Node server  (localhost:61991)
 //   portfolio-api  -> FastAPI via gunicorn (localhost:8000)
-// Nginx sits in front and routes / -> :3000 and /api -> :8000.
+// Nginx sits in front and routes / -> :61991 and /api -> :8000.
 //
 // Deploy:  pm2 start ecosystem.config.js  &&  pm2 save  &&  pm2 startup
 // Adjust `cwd` to wherever you cloned the repo on the server.
@@ -13,12 +13,12 @@ module.exports = {
       name: "portfolio-web",
       cwd: ROOT,
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
+      args: "start -p 61991",
       interpreter: "node",
       instances: 1,
       autorestart: true,
       max_memory_restart: "400M",
-      env: { NODE_ENV: "production", PORT: "3000" },
+      env: { NODE_ENV: "production", PORT: "61991" },
     },
     {
       name: "portfolio-api",

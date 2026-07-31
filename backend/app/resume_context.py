@@ -27,13 +27,18 @@ def profile() -> dict:
     return _data()["profile"]
 
 
+def _job_lines(j: dict) -> str:
+    """One job as context. A role holding several distinct products lists them
+    by name so the model can answer about one without blurring it into another."""
+    head = f"- {j['role']}, {j['company']} ({j['period']}): {j['summary']} Stack: {', '.join(j['stack'])}."
+    projects = "".join(f"\n  * {pr['name']}: {pr['summary']}" for pr in j.get("projects", []))
+    return head + projects
+
+
 def full_context() -> str:
     d = _data()
     p = d["profile"]
-    jobs = "\n".join(
-        f"- {j['role']}, {j['company']} ({j['period']}): {j['summary']} Stack: {', '.join(j['stack'])}."
-        for j in d["experience"]
-    )
+    jobs = "\n".join(_job_lines(j) for j in d["experience"])
     skills = "\n".join(
         f"- {g['title']}: {', '.join(list(g.get('star', [])) + list(g['skills']))}"
         for g in d["skillGroups"]
@@ -69,6 +74,16 @@ def resume_chunks() -> list[tuple[str, str]]:
                 f"{j['role']} at {j['company']} ({j['period']}). {j['summary']} Stack: {', '.join(j['stack'])}.",
             )
         )
+        # Each product gets its own chunk: a question about one of them should
+        # retrieve that product, not a paragraph averaging all three together.
+        for pr in j.get("projects", []):
+            chunks.append(
+                (
+                    f"resume:{j['company']}:{pr['name']}"[:200],
+                    f"{pr['name']} - built by {p['name']} as {j['role']} at {j['company']} "
+                    f"({j['period']}). {pr['summary']} Stack: {', '.join(j['stack'])}.",
+                )
+            )
     for g in d["skillGroups"]:
         chunks.append(
             (f"resume:skills:{g['title']}", f"{g['title']}: {', '.join(list(g.get('star', [])) + list(g['skills']))}.")
