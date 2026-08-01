@@ -563,6 +563,7 @@ function Signpost({
           action={sign.résumé ? "CLICK BOARD TO OPEN" : "CLICK TO TELEPORT"}
           system={sign.résumé ? "RESUME_ACCESS" : "ROUTE_ACCESS"}
           active={active || hovered}
+          titleFontSize={sign.id === "ask" ? 96 : undefined}
         />
       )}
     </group>

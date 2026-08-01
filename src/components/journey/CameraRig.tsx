@@ -18,7 +18,7 @@ export type DisplayFocus = { id: string; x: number; y: number; z: number; fx?: n
 const GROUND_CLEARANCE = 1.2;
 const ARCHITECT_MIN_DISTANCE = 6.5;
 const ARCHITECT_MAX_DISTANCE = 10;
-const ARRIVAL_BOARD_DISTANCE = 3.8;
+const ARRIVAL_BOARD_DISTANCE = 4.5;
 
 // Close third-person framing. The camera rides just behind and slightly off the
 // runner's shoulder at head height, so the avatar fills the frame and its face

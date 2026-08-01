@@ -11,6 +11,7 @@ import AskPanel from "./AskPanel";
 import DisplayAtmosphere, { type DisplayVisualTheme } from "./DisplayAtmosphere";
 import BoardContent from "./BoardContent";
 import MatrixTextFormation from "./MatrixTextFormation";
+import JourneyMusic from "./JourneyMusic";
 import type { Nav } from "./Avatar";
 import type { DisplayFocus } from "./CameraRig";
 import { resetGame, setSprint, pushToast } from "@/lib/journey/game";
@@ -632,6 +633,7 @@ export default function JourneyOverlay() {
           onDisplay={openDisplay}
         />
       </Canvas>
+      <JourneyMusic />
 
       {/* Loading / assembling gate — and the title card. This is the FIRST thing
           anyone sees, and it used to be a bare progress bar, so the site opened
@@ -687,7 +689,6 @@ export default function JourneyOverlay() {
           <button className="jrnSkip" onClick={() => toClassic()}>
             Skip to classic view →
           </button>
-
           {/* The left rail: the stop list, with the trail map parked under it.
               They're one flex column rather than two independently-placed
               cards, so the map can never land on top of the menu however far

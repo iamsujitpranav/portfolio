@@ -7,7 +7,7 @@ import { useFrame } from "@react-three/fiber";
 const GLYPHS = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ{}[]<>/\\|:+-=*#_";
 const REVEAL_SECONDS = 3.4;
 const DESIGN_WIDTH = 1200;
-const TEXTURE_WIDTH = 1600;
+const TEXTURE_WIDTH = 3200;
 
 function clamp(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -105,6 +105,7 @@ function drawSign(
   elapsed: number,
   tick: number,
   active: boolean,
+  titleFontSize?: number,
 ) {
   // Draw with the original 1200px layout coordinates onto a denser backing
   // canvas. This keeps every typographic proportion unchanged while giving
@@ -145,7 +146,7 @@ function drawSign(
   formingText(context, "ONLINE [01]", width - 48, height * 0.14, phase(elapsed, 0.08, 0.78), tick, 2, "#20c969");
 
   context.textAlign = "center";
-  const titleSize = title.length > 22 ? 58 : title.length > 14 ? 68 : 82;
+  const titleSize = titleFontSize ?? (title.length > 22 ? 58 : title.length > 14 ? 68 : 82);
   context.font = `800 ${titleSize}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
   context.shadowColor = "#19ff72";
   context.shadowBlur = 3;
@@ -188,6 +189,7 @@ export default function MatrixSignFace({
   action,
   system = "TRAIL_ACCESS",
   active = false,
+  titleFontSize,
 }: {
   width: number;
   height: number;
@@ -196,6 +198,7 @@ export default function MatrixSignFace({
   action: string;
   system?: string;
   active?: boolean;
+  titleFontSize?: number;
 }) {
   const [surface] = useState(() => {
     if (typeof document === "undefined") return null;
@@ -210,7 +213,7 @@ export default function MatrixSignFace({
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.anisotropy = 16;
-    drawSign(context, canvas, title, subtitle, action, system, 0, 0, active);
+    drawSign(context, canvas, title, subtitle, action, system, 0, 0, active, titleFontSize);
     texture.needsUpdate = true;
     return { canvas, context, texture };
   });
@@ -219,9 +222,9 @@ export default function MatrixSignFace({
   useEffect(() => {
     if (!surface) return;
     animation.current = { elapsed: 0, accumulator: 0, tick: 0, complete: false };
-    drawSign(surface.context, surface.canvas, title, subtitle, action, system, 0, 0, active);
+    drawSign(surface.context, surface.canvas, title, subtitle, action, system, 0, 0, active, titleFontSize);
     surface.texture.needsUpdate = true;
-  }, [active, action, subtitle, surface, system, title]);
+  }, [active, action, subtitle, surface, system, title, titleFontSize]);
 
   useFrame((_, delta) => {
     if (!surface || animation.current.complete) return;
@@ -231,7 +234,7 @@ export default function MatrixSignFace({
     if (state.accumulator < 1 / 12 && state.elapsed < REVEAL_SECONDS) return;
     state.accumulator = 0;
     state.tick += 1;
-    drawSign(surface.context, surface.canvas, title, subtitle, action, system, state.elapsed, state.tick, active);
+    drawSign(surface.context, surface.canvas, title, subtitle, action, system, state.elapsed, state.tick, active, titleFontSize);
     surface.texture.needsUpdate = true;
     if (state.elapsed >= REVEAL_SECONDS) state.complete = true;
   });

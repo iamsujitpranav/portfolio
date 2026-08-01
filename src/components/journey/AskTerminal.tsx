@@ -59,6 +59,7 @@ function ScreenPrompt({ onOpen, active }: { onOpen: () => void; active: boolean 
         action="CLICK SCREEN TO OPEN"
         system="RESUME_TERMINAL"
         active={active || hovered}
+        titleFontSize={96}
       />
     </group>
   );
@@ -164,6 +165,7 @@ export default function AskTerminal({
 }: {
   onOpen: (focus: DisplayFocus) => void;
   active?: boolean;
+  titleFontSize?: number;
 }) {
   const y = height(ASK_TERMINAL.x, ASK_TERMINAL.z) - 0.05;
   return (
