@@ -226,12 +226,7 @@ export default function JourneyOverlay() {
     }
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const small = window.innerWidth < 820;
-    setCapable(webgl);
-    if (webgl && !reduce && !coarse && !small) {
-      resetGame();
-      setActive(true);
-      setPhase("loading");
-    }
+    setCapable(webgl && !reduce && !coarse && !small);
   }, [reduce]);
 
   // Reflect the avatar's walking state (drives button disabling / caption).
@@ -592,13 +587,24 @@ export default function JourneyOverlay() {
 
   if (!mounted) return null;
 
-  // Inactive: show a launch pill on capable devices (classic site shows through).
+  // Inactive: ask for one deliberate gesture before loading the immersive world.
+  // Besides making the next step obvious, this click is the browser-approved
+  // moment for starting the soundtrack.
   if (!active) {
     return capable ? (
-      <button className="jrnLaunch" onClick={startJourney}>
-        <span className="jrnLaunchDot" />
-        Explore my résumé in 3D
-      </button>
+      <div className="jrnLaunchStage">
+        <button className="jrnLaunch" onClick={startJourney} aria-label="Initialize Sujit's 3D résumé journey">
+          <span className="jrnLaunchRing" aria-hidden="true">
+            <span />
+          </span>
+          <span className="jrnLaunchCode" aria-hidden="true">
+            <code>def initialize(journey):</code>
+            <code className="jrnLaunchIndent">person = &quot;Sujit&quot;</code>
+            <code className="jrnLaunchIndent">journey.start()</code>
+          </span>
+          <span className="jrnLaunchHint">click to enter</span>
+        </button>
+      </div>
     ) : null;
   }
 
