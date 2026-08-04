@@ -18,6 +18,8 @@ export default function SkillsCapabilityRing({ groups }: { groups: SkillGroup[] 
   const [active, setActive] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const activeNodes = useRef<HTMLSpanElement | null>(null);
   const dragStart = useRef<number | null>(null);
   const dragged = useRef(false);
   const lastWheel = useRef(0);
@@ -69,6 +71,21 @@ export default function SkillsCapabilityRing({ groups }: { groups: SkillGroup[] 
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
   }, [total]);
+
+  // The node list scrolls when a group has more skills than the card can show.
+  // Track that so the card can render a "more below" affordance instead of
+  // silently cropping the tail of the list.
+  useEffect(() => {
+    const element = activeNodes.current;
+    if (!element) return;
+
+    const measure = () => setOverflowing(element.scrollHeight - element.clientHeight > 2);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [active]);
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -149,8 +166,8 @@ export default function SkillsCapabilityRing({ groups }: { groups: SkillGroup[] 
                 </span>
                 <strong>{group.title}</strong>
                 <span className="jrnCapabilityCardLine" aria-hidden="true"><i /></span>
-                <span className="jrnCapabilityCardBody">
-                  <span className="jrnCapabilityNodes">
+                <span className="jrnCapabilityCardBody" data-overflow={selected && overflowing ? "1" : undefined}>
+                  <span className="jrnCapabilityNodes" ref={selected ? activeNodes : undefined}>
                     {(group.star ?? []).map((skill, node) => (
                       <span className="jrnCapabilityNode star" key={skill} style={{ animationDelay: `${node * 45}ms` }}>
                         <i aria-hidden="true" />{skill}<em>CORE</em>

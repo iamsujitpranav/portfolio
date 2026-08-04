@@ -711,8 +711,14 @@ html:has(.jrnGate) .cursor-ring, html:has(.jrnGate) .cursor-dot { opacity: 0; }
      flex takes that with it, and the row's own flex-end would then push the
      passport across to the soundtrack. The auto margin moves to the chip. */
   .jrnScore { margin-right: auto; }
+  /* `width: max-content` is load-bearing, not tidying. Positioned with `left`
+     and no `right`, this box shrink-to-fits against "viewport minus left" —
+     half the screen — so it settled narrower than its own stops and clipped
+     Social Trail off the end, on a bar with 400px to spare. The max-width
+     still caps it, and the overflow-x scroll still catches the widths where
+     the stops genuinely don't fit. */
   .jrnMenu { position: fixed; left: 50%; top: 62px; transform: translateX(-50%);
-    margin-right: 0; max-width: calc(100vw - 40px); }
+    margin-right: 0; width: max-content; max-width: calc(100vw - 40px); }
   /* A row of its own is a row with room to be named. */
   .jrnMenuTitle { display: grid; }
 }
@@ -1686,8 +1692,19 @@ main:has(.jrnLaunchStage) .siteMusic { display: none; }
      stack, not to the chrome. Fixed, not absolute, for the reason .jrnPassport
      gives above: .jrnRoot is the viewport. */
   .jrnTopBar { top: 14px; left: auto; right: 14px; max-width: calc(100vw - 28px); flex-direction: column; align-items: flex-end; gap: 8px; }
-  .jrnScore { position: fixed; top: 14px; left: 14px; margin-right: 0; }
+  /* At full width the chip is ~282px, and a 375px phone cannot fit that beside
+     a 196px skip button — they overlapped, the chip sitting over the skip
+     link's own text. Drop to the two numbers: the words and the bar are what
+     the checklist itself is for, one tap away. ~104px, which clears it. */
+  .jrnScore { position: fixed; top: 14px; left: 14px; margin-right: 0; padding: 0 12px; gap: 8px; }
+  .jrnScoreMain span, .jrnScoreBar { display: none; }
+  .jrnScoreCount { padding-right: 0; }
   .jrnSkip { order: -1; }
   .jrnMusic { max-width: 100%; }
   .jrnMusicTrack { max-width: 110px; }
+  /* The chrome needs two rows at this width (skip, then the soundtrack), so
+     the Trail clears both rather than the one it clears above — it was landing
+     on top of the soundtrack pill. Everything below measures from --jrn-dock. */
+  :root { --jrn-dock: 156px; }
+  .jrnMenu { top: 106px; }
 }
