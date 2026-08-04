@@ -41,20 +41,31 @@ fi
 
 COMPOSE="docker compose -f compose.prod.yaml --env-file $ENV_FILE"
 
-# Read POSTGRES_* for the dump below from the same file compose reads.
-set -a
-# shellcheck disable=SC1090
-. "./$ENV_FILE"
-set +a
-POSTGRES_USER="${POSTGRES_USER:-portfolio}"
-POSTGRES_DB="${POSTGRES_DB:-portfolio}"
+# Read the few values this script needs out of the same file compose reads.
+#
+# Parsed, NOT sourced: an env file is not a shell script. Compose is happy with
+# `CHAT_RATE_LIMIT=12/300, 60/3600`, but `.` on that line makes bash try to run
+# `60/3600` as a command — which, under `set -e`, kills the deploy before it
+# starts. (It did, on the first run.)
+envval() {
+  sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" | tail -n1 \
+    | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" -e 's/[[:space:]]*$//'
+}
+POSTGRES_USER="$(envval POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-portfolio}"
+POSTGRES_DB="$(envval POSTGRES_DB)";     POSTGRES_DB="${POSTGRES_DB:-portfolio}"
+APP_PORT="$(envval APP_PORT)";           APP_PORT="${APP_PORT:-61991}"
+APP_BIND="$(envval APP_BIND)";           APP_BIND="${APP_BIND:-0.0.0.0}"
 # Check the stack on its own published port rather than through Caddy: this has
 # to work before DNS points here, and it isolates "did MY deploy come up" from
 # "is the shared edge routing correctly". A wildcard bind is reached over
 # loopback; a specific bind (e.g. 172.17.0.1) has to be addressed as itself.
-HEALTH_HOST="${APP_BIND:-0.0.0.0}"
-[ "$HEALTH_HOST" = "0.0.0.0" ] && HEALTH_HOST="127.0.0.1"
-HEALTH_URL="http://${HEALTH_HOST}:${APP_PORT:-61991}/api/health"
+# (if/fi rather than `[ ... ] && ...`: under `set -e` a false test as the last
+# command of an && list ends the script.)
+HEALTH_HOST="$APP_BIND"
+if [ "$HEALTH_HOST" = "0.0.0.0" ]; then
+  HEALTH_HOST="127.0.0.1"
+fi
+HEALTH_URL="http://${HEALTH_HOST}:${APP_PORT}/api/health"
 
 # Remember where we are so a failed deploy can go straight back.
 PREV_SHA="$(git rev-parse HEAD)"
