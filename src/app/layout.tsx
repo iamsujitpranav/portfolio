@@ -11,6 +11,100 @@ import Grain from "@/components/Grain";
 import { siteUrl } from "@/lib/site";
 import { profile } from "@content/resume";
 
+const seoTitle = "Sujit Pranav Reddy AI/ML, Python, Ruby on Rails developer";
+const seoDescription =
+  "Sujit Pranav Reddy is an AI/ML, Python and Ruby on Rails developer with 12+ years in web development and 3+ years in AI/ML development, building web and mobile applications with TensorFlow, PyTorch, LangChain and RAG.";
+const socialDescription =
+  "Engineering Head and AI/ML, Python, and Ruby on Rails developer in India. 12+ years of web development and 3+ years of AI/ML development, with expertise in architecture, team leadership, TensorFlow, PyTorch, LangChain, RAG, and production SaaS platforms.";
+
+const seoKeywords = [
+  "Best AI developer",
+  "Best Mobile Application developer",
+  "Best Web Application Developer",
+  "Best Python Developer",
+  "Best Machine Learning developer",
+  "TensorFlow",
+  "PyTorch",
+  "LangChain",
+  "RAG",
+  "Top 10 developer in India",
+  "Best Architect",
+  "Best Engineering Head",
+  "Best Team leader",
+  "AI/ML developer",
+  "Artificial Intelligence developer",
+  "Machine Learning engineer",
+  "Generative AI developer",
+  "LLM application developer",
+  "RAG developer",
+  "Python developer",
+  "Ruby on Rails developer",
+  "Full Stack developer",
+  "Web application developer",
+  "Mobile application developer",
+  "Software architect",
+  "Solutions architect",
+  "Engineering leader",
+  "Technical team leader",
+  "AI platform architect",
+  "FastAPI developer",
+  "Next.js developer",
+  "React developer",
+  "AWS developer",
+  "SaaS architect",
+  "Hyderabad software developer",
+  "India software developer",
+  "Natural language processing",
+  "Recommendation systems",
+  "Semantic search",
+  "Vector search",
+  "Embeddings",
+  "Agentic AI",
+  "Generative AI",
+  "Microservices",
+  "Cloud architecture",
+  "DevOps",
+];
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": `${siteUrl}/#person`,
+      name: profile.name,
+      url: siteUrl,
+      jobTitle: "Engineering Head and AI/ML Developer",
+      description: socialDescription,
+      homeLocation: { "@type": "Place", name: profile.location },
+      sameAs: [profile.linkedin, profile.github],
+      knowsAbout: [
+        "Artificial intelligence",
+        "Machine learning",
+        "Python",
+        "Ruby on Rails",
+        "TensorFlow",
+        "PyTorch",
+        "LangChain",
+        "Retrieval-augmented generation (RAG)",
+        "Web application development",
+        "Mobile application development",
+        "Software architecture",
+        "Engineering leadership",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      url: siteUrl,
+      name: seoTitle,
+      description: seoDescription,
+      inLanguage: "en-IN",
+      publisher: { "@id": `${siteUrl}/#person` },
+    },
+  ],
+};
+
 const display = Space_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -39,20 +133,42 @@ const serif = Instrument_Serif({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: `${profile.name} — ${profile.title}`,
-  description: profile.summary.slice(0, 155),
+  title: seoTitle,
+  description: seoDescription,
+  keywords: seoKeywords,
+  authors: [{ name: profile.name, url: profile.linkedin }],
+  creator: profile.name,
+  publisher: profile.name,
+  category: "technology",
+  classification: "AI/ML, Python, Ruby on Rails, web and mobile application development",
   // The site is reachable as both apex and www (nginx 301s www to the apex);
   // the canonical tag makes sure a crawler that arrived on the wrong one still
   // credits a single URL.
   alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: `${profile.name} — ${profile.title}`,
-    description: `${profile.yearsExperience}+ yrs engineering · ${profile.yearsAI}+ yrs AI/ML. ${profile.openTo}`,
+    title: seoTitle,
+    description: socialDescription,
     url: siteUrl,
     siteName: profile.name,
+    locale: "en_IN",
     type: "website",
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary",
+    title: seoTitle,
+    description: socialDescription,
+  },
 };
 
 // Apply saved/system theme before first paint to avoid a flash.
@@ -70,6 +186,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
       </head>
       <body>
         <Providers>

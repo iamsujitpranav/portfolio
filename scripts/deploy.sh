@@ -120,9 +120,19 @@ $COMPOSE restart gateway
 # --- Re-index the résumé/articles for RAG (opt-in) --------------------------
 # Only needed when content/resume.json or the articles changed, and it costs
 # embedding-API calls, so it is off unless asked for.
+# Never fatal. The stack is already live by this point, so letting a failed
+# reindex abort the script under `set -e` would skip the health check and the
+# rollback below — shipping an unverified deploy with no safety rail. That
+# happened on the v1.0.3 deploy: no embedding key was set, ingest exited 1, and
+# the script died three lines before the check that would have caught it.
+# A stale index is a degraded search, not an outage; a missed health check is.
+INGEST_FAILED=0
 if [ "${INGEST:-0}" != "0" ]; then
   echo ">> Rebuilding the pgvector index"
-  $COMPOSE --profile tools run --rm ingest
+  if ! $COMPOSE --profile tools run --rm ingest; then
+    INGEST_FAILED=1
+    echo "!! Reindex FAILED — continuing to the health check. See the summary below."
+  fi
 fi
 
 # --- Health check -----------------------------------------------------------
@@ -148,6 +158,17 @@ curl -sk "$HEALTH_URL" || true
 echo
 echo ">> Pruning dangling images."
 docker image prune -f
+
+# Last line of output, so a non-fatal failure buried under a few hundred lines
+# of build log still gets seen. Exits non-zero: the site is up, but the deploy
+# did not do everything it was asked to.
+if [ "$INGEST_FAILED" -ne 0 ]; then
+  echo
+  echo "!! Deploy is HEALTHY but the pgvector reindex failed — the index is stale."
+  echo "!! Set VOYAGE_API_KEY (or OPENAI_API_KEY) in $ENV_FILE, then re-run:"
+  echo "!!   INGEST=1 ./scripts/deploy.sh $REF"
+  exit 2
+fi
 
 }
 
