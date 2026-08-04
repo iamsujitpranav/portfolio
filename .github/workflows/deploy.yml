@@ -1,0 +1,47 @@
+name: Deploy
+
+# Ships a release tag to the production server by running the same script you
+# would run by hand there — scripts/deploy.sh, which backs up Postgres, builds,
+# health-checks and rolls back on failure. Nothing about the deploy logic lives
+# in this file, so a broken Actions runner never blocks a manual deploy.
+#
+# Required repository secrets:
+#   DEPLOY_HOST      server hostname or IP
+#   DEPLOY_USER      SSH user that owns the checkout at DEPLOY_PATH
+#   DEPLOY_SSH_KEY   private key for that user (no passphrase)
+#   DEPLOY_PATH      checkout on the server, e.g. /opt/sujit-portfolio
+# Optional:
+#   DEPLOY_PORT      SSH port (default 22)
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or branch to deploy"
+        required: true
+        default: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # A tag push doesn't re-run CI's checks against that exact commit, so the
+    # deploy waits on nothing — cut releases from a green main.
+    environment: production
+    steps:
+      - name: Resolve the ref to deploy
+        id: ref
+        run: echo "value=${{ github.event.inputs.ref || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Install the SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT || 22 }}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Run the deploy script on the server
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${{ secrets.DEPLOY_PORT || 22 }}" \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd ${{ secrets.DEPLOY_PATH }} && ./scripts/deploy.sh ${{ steps.ref.outputs.value }}"

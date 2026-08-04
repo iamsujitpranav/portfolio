@@ -6,6 +6,10 @@ const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["three"],
+  // Don't advertise the framework version to anyone scanning for known Next
+  // CVEs. (The rest of the security headers are set at the edge, in
+  // deploy/nginx.prod.conf.template, so they cover static files too.)
+  poweredByHeader: false,
   // Emit the minimal self-contained Node server consumed by the production
   // Docker image instead of copying the full source tree and node_modules.
   output: "standalone",

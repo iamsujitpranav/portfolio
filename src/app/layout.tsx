@@ -8,6 +8,7 @@ import CommandPalette from "@/components/CommandPalette";
 import Cursor from "@/components/Cursor";
 import ScrollProgress from "@/components/ScrollProgress";
 import Grain from "@/components/Grain";
+import { siteUrl } from "@/lib/site";
 import { profile } from "@content/resume";
 
 const display = Space_Grotesk({
@@ -36,12 +37,14 @@ const serif = Instrument_Serif({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://sujit.dev";
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: `${profile.name} — ${profile.title}`,
   description: profile.summary.slice(0, 155),
+  // The site is reachable as both apex and www (nginx 301s www to the apex);
+  // the canonical tag makes sure a crawler that arrived on the wrong one still
+  // credits a single URL.
+  alternates: { canonical: "/" },
   openGraph: {
     title: `${profile.name} — ${profile.title}`,
     description: `${profile.yearsExperience}+ yrs engineering · ${profile.yearsAI}+ yrs AI/ML. ${profile.openTo}`,

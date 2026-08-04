@@ -1,0 +1,64 @@
+name: CI
+
+# Everything that must be green before a commit is allowed to reach the
+# server. Neither suite needs secrets, a database or the network — the backend
+# fixtures force the app into its unconfigured state and the frontend mocks
+# fetch — so this runs on a fork PR too.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        # Catches what the type checker can't: a Server Component that only
+        # blows up when rendered, or a bad next.config. The blog data layer
+        # degrades to an empty list when the API is unreachable, so no backend
+        # is needed here.
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://sujitpranavreddy.dev
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Pytest
+        run: python -m pytest

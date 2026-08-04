@@ -86,10 +86,10 @@ docker compose --env-file .env.docker --profile tools run --rm ingest
 
 Stop the stack with `docker compose --env-file .env.docker down`. PostgreSQL data
 survives in the named volume; add `-v` only when you intentionally want to erase it.
-For production, set `NEXT_PUBLIC_SITE_URL`, use a strong URL-safe database password,
-and terminate TLS at the hosting load balancer or a certificate-aware proxy in front
-of the gateway. Public `NEXT_PUBLIC_*` values are baked into the frontend image, so
-rebuild it after changing them.
+
+This stack is the **local preview** — one plain HTTP port, no TLS. Production is
+`compose.prod.yaml`, which publishes 80/443, terminates TLS with a Let's Encrypt
+certificate and renews it on a timer. See **[DEPLOY.md](DEPLOY.md)**.
 
 ## Local development
 
@@ -156,50 +156,26 @@ the two rest-stop games — and the noise/terrain math the 3D world derives from
 The WebGL scene itself is deliberately not unit-tested: jsdom has no GPU, so
 those components are verified by running the app.
 
-## Deploy — Hostinger VPS (Ubuntu)
+## Deploy — sujitpranavreddy.dev
+
+Full runbook: **[DEPLOY.md](DEPLOY.md)**.
+
+The VPS hosts other sites behind a shared Caddy container that owns :80/:443,
+so this stack publishes exactly one port (61991) and Caddy proxies the domain
+to it. TLS is Caddy's job; nothing here binds a port another site uses.
+
+Releases are tags:
 
 ```bash
-# --- prerequisites (once) ---
-sudo apt update && sudo apt install -y nginx postgresql python3-venv
-# Node 22 LTS:
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs
-sudo npm i -g pm2
-
-# --- code ---
-sudo mkdir -p /var/www/portfolio && sudo chown $USER /var/www/portfolio
-git clone <your-repo> /var/www/portfolio && cd /var/www/portfolio
-
-# --- frontend build ---
-npm ci
-cp .env.example .env.production   # set NEXT_PUBLIC_* before building
-npm run build
-
-# --- backend ---
-cd backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env              # set ANTHROPIC_API_KEY, DATABASE_URL, RESEND_*, embeddings
-python -m app.ingest             # after Postgres + pgvector are ready
-deactivate && cd ..
-
-# --- run both under PM2 ---
-pm2 start ecosystem.config.js
-pm2 save && pm2 startup          # run the printed command so it survives reboot
-
-# --- nginx + TLS ---
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/portfolio
-sudo ln -s /etc/nginx/sites-available/portfolio /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d sujit.dev -d www.sujit.dev
+./scripts/release.sh          # on a dev machine: tag origin/main, push it
+./scripts/deploy.sh v1.2.3    # on the server: backup -> build -> health check
 ```
 
-Redeploy after changes:
-```bash
-git pull && npm ci && npm run build
-cd backend && source venv/bin/activate && pip install -r requirements.txt && python -m app.ingest && deactivate && cd ..
-pm2 reload ecosystem.config.js
-```
+`deploy.sh` dumps Postgres before anything starts and rolls the code back
+automatically if the post-deploy health check fails.
+
+An older PM2 + host-nginx path (`ecosystem.config.js`, `deploy/nginx.conf`)
+is still in the repo for a bare-metal install.
 
 ## Editing content
 - **Résumé:** edit `content/resume.json` (frontend + backend both pick it up; re-run `app.ingest` for RAG).

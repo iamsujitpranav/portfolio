@@ -1,0 +1,45 @@
+# The site block that puts sujitpranavreddy.dev in front of this stack.
+#
+# The VPS already runs other sites behind a shared Caddy container
+# (compose project `arccaa-prod`, config bind-mounted from
+# /opt/arccaa/core/deploy/Caddyfile). Caddy owns :80 and :443 there, so this
+# stack must not — it publishes 61991 and Caddy proxies to it.
+#
+# This file is the reference copy of what gets appended to that shared
+# Caddyfile. Applying it (from the repo checkout on the server):
+#
+#   CADDYFILE=/opt/arccaa/core/deploy/Caddyfile
+#   cp "$CADDYFILE" "$CADDYFILE.bak.$(date +%F-%H%M%S)"   # always keep a way back
+#   cat deploy/caddy-site.caddy >> "$CADDYFILE"
+#   docker exec arccaa_caddy_prod caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+#   docker exec arccaa_caddy_prod caddy reload  --config /etc/caddy/Caddyfile --adapter caddyfile
+#
+# `caddy reload` validates before swapping and keeps the running config if the
+# new one is bad, so a typo here cannot take the other sites down.
+#
+# Caddy issues and renews the certificate itself (ACME), which is why there is
+# no certbot anywhere in this repo. It can only do that once
+# sujitpranavreddy.dev resolves to this server.
+
+# --- Portfolio: sujitpranavreddy.dev ---------------------------------------
+# 172.17.0.1 is the host as seen from a container (the docker0 bridge). The
+# stack publishes 61991 there, so no shared Docker network — and therefore no
+# chance of a service-name collision with the other projects on this box.
+www.sujitpranavreddy.dev {
+	redir https://sujitpranavreddy.dev{uri} permanent
+}
+
+sujitpranavreddy.dev {
+	reverse_proxy 172.17.0.1:61991 {
+		# The résumé chat streams a Claude answer as text/plain. Caddy only
+		# auto-flushes text/event-stream, so without this the whole answer is
+		# buffered and lands in one lump at the end.
+		flush_interval -1
+		transport http {
+			# Long enough for a slow Claude answer; the app's own ceiling is
+			# 300s (deploy/nginx.prod.conf).
+			read_timeout 360s
+			write_timeout 360s
+		}
+	}
+}
