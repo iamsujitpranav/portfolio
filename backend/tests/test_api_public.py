@@ -53,7 +53,11 @@ def test_chat_rejects_an_oversized_message(client):
 
 
 def test_chat_accepts_a_message_at_exactly_the_limit(client):
-    at_limit = "x" * config.CHAT_MAX_MESSAGE_CHARS
+    # Real prose, not "x" * N: the guard treats a wall of one repeated character
+    # as junk and answers it itself, which would hide whether validation passed.
+    at_limit = ("Tell me about his experience with Rails and search. " * 60)[
+        : config.CHAT_MAX_MESSAGE_CHARS
+    ]
     r = client.post("/api/chat", json=one(at_limit), headers=ip("1.0.0.3"))
     assert r.status_code == 503  # passed validation, died on the missing key
 

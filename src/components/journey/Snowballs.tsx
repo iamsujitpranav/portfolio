@@ -6,6 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import { height } from "@/lib/journey/terrain";
 import { smoothstep, lerp } from "@/lib/journey/noise";
 import { pushToast, playThrow, game, avatarPos } from "@/lib/journey/game";
+import { markGame } from "@/lib/journey/passport";
 
 // Snowball toss. Snowmen stand just off the trail; click one and the avatar
 // turns, winds up (the "throw" motion clip) and lobs a snowball in a ballistic
@@ -254,7 +255,10 @@ export default function Snowballs({ curve }: { curve: THREE.CatmullRomCurve3 }) 
           b.active = false;
           spawnPuff(head);
           document.body.style.cursor = ""; // target vanished — don't strand the cursor
-          if (game.active) pushToast("Bullseye!", "score");
+          if (game.active) {
+            pushToast("Bullseye!", "score");
+            markGame("snowmen", "won"); // one landed hit is the whole ask
+          }
         }
       }
       // Ground / timeout.

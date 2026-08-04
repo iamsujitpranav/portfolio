@@ -112,12 +112,12 @@ export const FOUNTAINS: { x: number; z: number; grand: boolean }[] = [
   { x: 6.98, z: -79.96, grand: true },
 ];
 
-// Reserved low-profile positions around the GRAND fountain. These began as the
-// social-board arc; TownSquare.tsx now reuses three for glowing career
-// milestones. The audited spacing remains valuable: every point is ≥ 6.6 m
-// clear of a lane and ≥ 2.8 m from the square lamp pair. StreetLamps.tsx keeps
-// road posts off the full set.
-export const SOCIAL_BOARDS: { x: number; z: number }[] = [
+// Reserved low-profile clearings around the GRAND fountain (the arc where the
+// social boards once stood — the boards are gone, the clear ground stays).
+// The audited spacing remains valuable: every point is ≥ 6.6 m clear of a
+// lane and ≥ 2.8 m from the square lamp pair. StreetLamps.tsx keeps road
+// posts off the full set so the fountain wedge stays open.
+export const SQUARE_CLEARINGS: { x: number; z: number }[] = [
   { x: 5.57, z: -84.03 },
   { x: 8.86, z: -83.83 },
   { x: 11.04, z: -81.37 },

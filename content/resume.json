@@ -138,7 +138,7 @@
     }
   ],
   "skillGroups": [
-    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
+    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["Golang", "FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
     { "title": "AI & ML", "star": ["Anthropic Claude", "MCP"], "skills": ["RAG", "LangChain", "PyTorch", "TensorFlow", "OpenAI API", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Semantic search"] },
     { "title": "Cloud & DevOps", "star": ["AWS"], "skills": ["Kubernetes", "Docker", "GitHub Actions", "Jenkins", "Nginx", "Capistrano"] },
     { "title": "Data & Storage", "star": ["PostgreSQL"], "skills": ["pgvector", "MySQL", "Redis", "ElasticSearch", "Algolia"] },

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pushToast, celebrate } from "@/lib/journey/game";
+import { markGame } from "@/lib/journey/passport";
+import { track } from "@/lib/journey/analytics";
 
 // "Stack match" — the second rest-stop diversion, opened from the shed kiosk in
 // the village. Six pairs of the tools this site is actually built with, face
@@ -81,6 +83,8 @@ export default function MemoryMatch({ onClose }: { onClose: () => void }) {
       "board",
     );
     celebrate(turns <= PERFECT_TURNS); // a flawless board earns the big routine
+    markGame("match", "won"); // clearing the board IS the win condition here
+    track("game_result", { game: "match", result: "won", turns });
   }, [won, turns]);
 
   const status = won

@@ -1,0 +1,519 @@
+/* ============================================================================
+   ADMIN — the analytics dashboard behind /admin.
+   Uses the site's own tokens (globals.css) so it inherits light/dark for free.
+   ========================================================================== */
+
+.admWrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+
+/* --- login ---------------------------------------------------------------- */
+
+.admLoginWrap {
+  min-height: 78vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.admLogin {
+  width: min(400px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  display: grid;
+  gap: 16px;
+}
+
+.admLogin h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admLoginSub {
+  margin: -8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admField {
+  display: grid;
+  gap: 6px;
+}
+
+.admField span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admField input {
+  font: inherit;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.admField input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.admPrimary {
+  font: inherit;
+  font-weight: 600;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.18s var(--ease);
+}
+
+.admPrimary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admError {
+  margin: 0;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* --- header --------------------------------------------------------------- */
+.admHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.admHead h1 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  margin: 0;
+}
+
+.admSub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 62ch;
+}
+
+.admSub code,
+.admNotice code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--accent-soft);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.admHeadTools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admRanges {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.admRanges button {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.admRanges button[data-on] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.admGhost {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admGhost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* A refresh in flight keeps the old numbers on screen, dimmed — blanking the
+   page every few seconds is worse than a moment of slightly stale data. */
+.admBody[data-stale] {
+  opacity: 0.55;
+  transition: opacity 0.2s var(--ease);
+}
+
+.admNotice {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.admNotice b {
+  color: var(--text);
+}
+
+.admNoticeBad {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* --- KPI strip ------------------------------------------------------------ */
+.admKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.admKpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 3px;
+}
+
+.admKpiLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admKpiValue {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.admKpiNote {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* --- panels --------------------------------------------------------------- */
+/* globals.css puts 120px of vertical padding on every <section> for the classic
+   site's page rhythm. These are cards, not page sections — the override is
+   load-bearing, not tidying. */
+.admPanel {
+  padding: 22px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.admPanel h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admHint {
+  margin: 5px 0 16px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  max-width: 74ch;
+}
+
+.admSubhead {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 22px 0 10px;
+}
+
+.admFoot {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.admGrid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  /* Each card is as tall as its own content — a short panel beside a long one
+     shouldn't be stretched into a field of empty space. */
+  align-items: start;
+  gap: 16px;
+}
+
+.admGrid2 > .admPanel {
+  margin-bottom: 16px;
+}
+
+/* --- bars ----------------------------------------------------------------- */
+.admTrack {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--grid);
+  overflow: hidden;
+}
+
+.admFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.35s var(--ease);
+}
+
+.admBars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 11px;
+}
+
+.admBarHead,
+.admFunnelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+  font-size: 13.5px;
+}
+
+/* `min-width: 0` is what actually makes the ellipsis work. BOTH levels need it:
+   a grid item and a flex item each default to min-width:auto, which means "never
+   shrink below your own text" — so a long secret's label pushed its row, and the
+   whole page, wider than the phone it was on. */
+.admBars li,
+.admFunnelRow {
+  min-width: 0;
+}
+
+.admBarHead > span,
+.admFunnelHead > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admBarHead b,
+.admFunnelHead b {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.admBarHead em,
+.admFunnelHead em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+/* Nothing recorded — kept visible on purpose. The board nobody has opened is
+   the finding, and a list of only what happened would hide it. */
+.admBars li[data-zero] .admBarHead {
+  color: var(--muted);
+}
+
+.admBars li[data-zero] b {
+  opacity: 0.65;
+}
+
+/* --- funnel --------------------------------------------------------------- */
+.admFunnel {
+  display: grid;
+  gap: 15px;
+}
+
+.admDrop {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.admTourTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.admTourTop b {
+  font-family: var(--font-display);
+  font-size: 19px;
+  color: var(--text);
+  margin-right: 5px;
+}
+
+.admTourRate {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--signal);
+  align-self: center;
+}
+
+/* --- questions ------------------------------------------------------------ */
+.admQuestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.admQuestions li {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.admQuestions time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* --- sparkline ------------------------------------------------------------ */
+.admSpark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+/* Capped so a two-day chart reads as a chart rather than two billboards; a
+   year's worth still gets its own scroll. */
+.admSparkBar {
+  flex: 1 0 4px;
+  min-width: 4px;
+  max-width: 28px;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.85;
+}
+
+.admSparkBar:hover {
+  opacity: 1;
+}
+
+/* --- table ---------------------------------------------------------------- */
+/* Wide content scrolls inside its own box; the page body never scrolls
+   sideways, however narrow the phone. */
+.admScroll {
+  overflow-x: auto;
+}
+
+.admTable {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admTable th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0 10px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admTable td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.admTable td:not(:first-child),
+.admTable th:not(:first-child) {
+  text-align: right;
+  font-family: var(--font-mono);
+  width: 110px;
+}
+
+.admTable code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+@media (max-width: 640px) {
+  .admWrap {
+    padding: 24px 16px 72px;
+  }
+
+  .admPanel {
+    padding: 18px 16px 20px;
+  }
+}

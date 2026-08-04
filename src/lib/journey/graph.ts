@@ -1,4 +1,4 @@
-// The journey's PATH GRAPH — nodes (town / résumé stop / junction / social) linked
+// The journey's PATH GRAPH — nodes (town / résumé stop / junction) linked
 // by curved edges. This generalizes the single linear walk curve: instead of one
 // `progress ∈ [0,1]` scalar the avatar carries a ROUTE (a shortest path over the
 // graph), so the world can branch, rejoin, and loop through a walkable town while
@@ -32,8 +32,7 @@
 //   bridge (curling sheet on the ice just south of the deck).
 // • CROSSROADS — the TOWN SQUARE: a 5-way junction south of the old town and
 //   the journey's spawn — Experience east, Skills west, Ask southwest, the
-//   Summit south, the Town Gate north; grand fountain + social boards in the
-//   south-east wedge.
+//   Summit south, the Town Gate north; grand fountain in the south-east wedge.
 // • OUTER RING: Experience–Summit–Ask–Skills link directly, so stop-to-stop
 //   never has to pass back through town.
 // Every résumé stop is itself a junction (degree ≥ 3). Routing is Dijkstra —
@@ -48,7 +47,7 @@ import { SIDE_ROAD_XZ } from "./sideroad";
 import { BRIDGE } from "./config";
 import { height } from "./terrain";
 
-export type NodeKind = "town" | "stop" | "junction" | "social";
+export type NodeKind = "town" | "stop" | "junction";
 
 export type GraphNode = {
   id: string;
@@ -57,7 +56,6 @@ export type GraphNode = {
   kind: NodeKind;
   sectionId?: string; // résumé section to open on arrival (stop nodes)
   label?: string; // short nav / sign label
-  href?: string; // social nodes: external link opened on arrival
 };
 
 export type GraphEdge = {
@@ -128,7 +126,7 @@ const FREE_NODES: GraphNode[] = [
   // structure can never drift apart.
   { id: "waterfront", x: BRIDGE.ax, z: BRIDGE.az, kind: "junction", label: "Pond Bridge" },
   // The five-way is the TOWN SQUARE now — the square moved here from the old
-  // town, bringing the grand fountain and the social boards with it.
+  // town, bringing the grand fountain with it.
   { id: "cross", x: -2, z: -72, kind: "junction", label: "Town Square" },
   { id: "experience", x: 85, z: -44, kind: "stop", sectionId: "experience", label: "Experience" },
   { id: "skills", x: -62, z: -54, kind: "stop", sectionId: "skills", label: "Skills" },
@@ -483,7 +481,7 @@ export function distanceToGraph(x: number, z: number): number {
 /**
  * A spot BESIDE an edge: `off` metres to the given side (+1 = left of a→b
  * travel) of the point at fraction `tAB`, plus the yaw that faces back toward
- * the path. This is how square furniture (social posts, kiosks) is placed —
+ * the path. This is how square furniture (kiosks, lanterns) is placed —
  * anchoring to the edge's own local frame is bend-proof, where hand-authored
  * {z, lat} guesses kept landing on the wrong side of the first curve.
  */
@@ -720,9 +718,8 @@ const AT_END = 1e-4;
 
 /** The node the journey spawns at: the TOWN SQUARE — the five-way Crossroads
  * at the centre of the road network (the square moved here from the old
- * town). The avatar materialises at the junction with the grand fountain and
- * its ring of social boards in the south-east wedge and every road of the map
- * fanning out around it. */
+ * town). The avatar materialises at the junction with the grand fountain in
+ * the south-east wedge and every road of the map fanning out around it. */
 export const START_NODE = "cross";
 
 /** Initial resting point on the south road beside the Architect board. Keeping

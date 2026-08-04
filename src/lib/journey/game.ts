@@ -12,6 +12,8 @@ import {
   THROW_RELEASE,
   type MotionName,
 } from "./config";
+import { loadPassport, markGame, passport } from "./passport";
+import { track } from "./analytics";
 
 export type ToastKind = "secret" | "hit" | "score" | "board";
 /** DOM mini-games that a village kiosk can open. */
@@ -72,6 +74,8 @@ export const game = {
   sprint: false, // visitor is holding the accelerator
 
   // --- collectibles -------------------------------------------------------
+  // `secretsFound` is LIFETIME, not per-run: it mirrors the passport, so the
+  // HUD's "4/6 résumé facts" survives a reload. See syncSecretsFromPassport.
   secretsFound: 0,
   secretsTotal: 0,
 
@@ -96,6 +100,19 @@ export const game = {
 
 const now = () => (typeof performance !== "undefined" ? performance.now() : 0);
 
+/**
+ * Pull the found-secrets count off the passport. Called when the collectibles
+ * mount and after every collect, which is what keeps the counter monotonic: the
+ * gems respawn each visit, but a fact already uncovered is already uncovered.
+ */
+export function syncSecretsFromPassport() {
+  loadPassport();
+  const found = passport.data.secrets.length;
+  if (found === game.secretsFound) return;
+  game.secretsFound = found;
+  game.rev++;
+}
+
 let toastId = 1;
 export function pushToast(text: string, kind: ToastKind = "score") {
   game.toasts.push({ id: toastId++, text, kind, born: now() });
@@ -118,9 +135,13 @@ export function setSprint(on: boolean) {
   game.rev++;
 }
 
-/** Open / close a kiosk mini-game modal. */
+/** Open / close a kiosk mini-game modal. Opening one is where "played" is
+ *  stamped — both the HUD row and the 3D board itself route through here, so a
+ *  kiosk can never be opened without the passport hearing about it. */
 export function openModal(which: ModalGame) {
   game.modal = which;
+  markGame(which, "played");
+  track("game_open", { game: which });
   game.rev++;
 }
 export function closeModal() {
@@ -185,6 +206,7 @@ export function landKick() {
   game.moveImpactId = game.moveBlockerId;
   game.shake = 0.8;
   game.cleared++;
+  markGame("obstacles", "won"); // kicked or vaulted, the obstacle is behind you
   pushToast(KICK_LABELS[game.move?.clip ?? ""] ?? "Kick!", "hit");
 }
 
@@ -234,6 +256,7 @@ export function celebrate(big = false) {
 /** Register a cleared obstacle — vaulted clean over it. */
 export function clearObstacle() {
   game.cleared++;
+  markGame("obstacles", "won");
   pushToast("Clean vault!", "hit");
 }
 
@@ -287,7 +310,9 @@ export function stepJump(dt: number): number {
 export function resetGame() {
   game.cleared = 0;
   game.stumbles = 0;
-  game.secretsFound = 0;
+  // NOT zeroed: found facts are lifetime progress, held by the passport. A
+  // replay puts the gems back on the trail without taking the collection away.
+  syncSecretsFromPassport();
   game.jumpY = 0;
   game.airborne = false;
   game.jumpQueued = false;

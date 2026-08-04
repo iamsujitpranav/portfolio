@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { lerp } from "@/lib/journey/noise";
-import { game, pushToast } from "@/lib/journey/game";
+import { game, pushToast, syncSecretsFromPassport } from "@/lib/journey/game";
+import { markSecret } from "@/lib/journey/passport";
+import { track } from "@/lib/journey/analytics";
+import { SECRETS, SECRET_OFFSET } from "@/lib/journey/secrets";
 import { warp, warpedSince } from "@/lib/journey/warp";
 import type { Nav } from "./Avatar";
 
@@ -12,27 +15,27 @@ import type { Nav } from "./Avatar";
 // the path. Walking through one collects it (the auto-walk crosses its `u`),
 // scores, and surfaces a real résumé fact as a toast, so exploration pays out in
 // content rather than trivia. Count is published to the HUD via game.secretsTotal.
+//
+// The gems themselves are PER-RUN — every visit they are back on the trail, and
+// walking through one always pays out its fact, because that beat is the fun.
+// What persists is the passport's record of WHICH facts a visitor has uncovered,
+// so the counter never walks backwards between visits (see lib/journey/passport).
+//
+// The list lives in lib/journey/secrets.ts; re-exported here because the map has
+// always imported it from this module.
+export { SECRETS, SECRET_OFFSET };
 
-// u 0.205 (not 0.14): the tour's 0.13–0.18 stretch is the pond bridge DECK —
-// a gem there would hover over open water beside the rails (audited).
-export const SECRETS: { u: number; side: 1 | -1; fact: string }[] = [
-  { u: 0.205, side: 1, fact: "✦ 12 years shipping production systems" },
-  { u: 0.3, side: -1, fact: "✦ Modernized large-scale Rails monoliths — 2× release velocity" },
-  { u: 0.44, side: 1, fact: "✦ Builds agentic dev workflows on Claude + MCP" },
-  { u: 0.58, side: -1, fact: "✦ Took recommendation engines from prototype to prod" },
-  { u: 0.74, side: 1, fact: "✦ Ruby on Rails · Python · FastAPI" },
-  { u: 0.94, side: -1, fact: "✦ Open to Staff / Eng-Lead AI roles" },
-];
-export const SECRET_OFFSET = 1.6;
 const FLOAT_Y = 1.95;
 
 function Secret({
+  id,
   u,
   side,
   fact,
   curve,
   nav,
 }: {
+  id: string;
   u: number;
   side: 1 | -1;
   fact: string;
@@ -84,8 +87,13 @@ function Secret({
       if (lo < u && u <= hi && game.active) {
         s.taken = true;
         s.burst = 0.0001;
-        game.secretsFound++;
+        // The passport is the counter of record: stamping is idempotent, so
+        // re-collecting a fact found on an earlier visit still plays the toast
+        // and the burst but doesn't inflate the total.
+        const isNew = markSecret(id);
+        syncSecretsFromPassport();
         pushToast(fact, "secret");
+        if (isNew) track("secret_found", { secret: id, found: game.secretsFound });
         if (gem.current) gem.current.visible = false;
       }
     }
@@ -163,13 +171,15 @@ export default function Collectibles({
 }) {
   useEffect(() => {
     game.secretsTotal = SECRETS.length;
-    game.rev++;
+    // Carry forward what earlier visits turned up, so a returning visitor opens
+    // on "4/6 found" rather than being told they've never been here.
+    syncSecretsFromPassport();
   }, []);
 
   return (
     <group>
-      {SECRETS.map((s, i) => (
-        <Secret key={i} u={s.u} side={s.side} fact={s.fact} curve={curve} nav={nav} />
+      {SECRETS.map((s) => (
+        <Secret key={s.id} id={s.id} u={s.u} side={s.side} fact={s.fact} curve={curve} nav={nav} />
       ))}
     </group>
   );

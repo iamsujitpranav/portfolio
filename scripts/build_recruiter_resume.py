@@ -1,4 +1,9 @@
-"""Build the downloadable recruiter résumé from content/resume.json."""
+"""Build the downloadable recruiter résumé from content/resume.json.
+
+Layout is deliberately ATS-friendly: a single linear column, real text in a
+standard font, plain "•" bullets, and conventional section names — no tables,
+text boxes, or graphics that trip résumé parsers.
+"""
 
 from __future__ import annotations
 
@@ -15,13 +20,11 @@ from reportlab.lib.units import mm
 from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
+    HRFlowable,
     KeepTogether,
-    PageBreak,
     PageTemplate,
     Paragraph,
     Spacer,
-    Table,
-    TableStyle,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,26 +35,25 @@ ACCENT = colors.HexColor("#b32642")
 INK = colors.HexColor("#17191f")
 MUTED = colors.HexColor("#626978")
 RULE = colors.HexColor("#d9d5cc")
-PALE = colors.HexColor("#f6f4ef")
 
 
 def ascii_text(value: object) -> str:
     """Keep the PDF Helvetica-safe and avoid layout-breaking Unicode glyphs."""
     text = str(value)
     replacements = {
-        "\u2013": "-",
-        "\u2014": "-",
-        "\u2212": "-",
-        "\u2192": "->",
-        "\u00d7": "x",
-        "\u2193": "down",
-        "\u2605": "*",
-        "\u00b7": "-",
-        "\u2018": "'",
-        "\u2019": "'",
-        "\u201c": '"',
-        "\u201d": '"',
-        "\u00a0": " ",
+        "–": "-",
+        "—": "-",
+        "−": "-",
+        "→": "->",
+        "×": "x",
+        "↓": "down",
+        "★": "*",
+        "·": "-",
+        "‘": "'",
+        "’": "'",
+        "“": '"',
+        "”": '"',
+        " ": " ",
     }
     for source, replacement in replacements.items():
         text = text.replace(source, replacement)
@@ -65,6 +67,14 @@ def esc(value: object) -> str:
         .replace("<", "&lt;")
         .replace(">", "&gt;")
     )
+
+
+def period_text(value: str) -> str:
+    return re.sub(r"\bpresent\b", "Present", esc(value))
+
+
+def bare_url(value: str) -> str:
+    return re.sub(r"^https?://(www\.)?", "", value).rstrip("/")
 
 
 class ResumeDocTemplate(BaseDocTemplate):
@@ -81,8 +91,8 @@ class ResumeDocTemplate(BaseDocTemplate):
         canvas.line(doc.leftMargin, height - 15 * mm, width - doc.rightMargin, height - 15 * mm)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(MUTED)
-        canvas.drawString(doc.leftMargin, 10 * mm, "Sujit Pranav Reddy - Recruiter brief")
-        canvas.drawRightString(width - doc.rightMargin, 10 * mm, f"{doc.page}")
+        canvas.drawString(doc.leftMargin, 10 * mm, "Sujit Pranav Reddy")
+        canvas.drawRightString(width - doc.rightMargin, 10 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
 
@@ -91,94 +101,110 @@ def build() -> None:
     profile = data["profile"]
     experience = data["experience"]
     skills = data["skillGroups"]
-    metrics = data["metrics"]
 
     styles = getSampleStyleSheet()
     name = ParagraphStyle(
-        "Name", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=26,
-        leading=29, textColor=INK, spaceAfter=3, alignment=TA_LEFT,
+        "Name", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=24,
+        leading=27, textColor=INK, spaceAfter=2, alignment=TA_LEFT,
     )
     title = ParagraphStyle(
         "TitleLine", parent=styles["Normal"], fontName="Helvetica", fontSize=11,
-        leading=15, textColor=ACCENT, spaceAfter=11,
+        leading=15, textColor=ACCENT, spaceAfter=8,
     )
     contact = ParagraphStyle(
-        "Contact", parent=styles["Normal"], fontName="Helvetica", fontSize=8.5,
-        leading=12, textColor=MUTED, spaceAfter=13,
+        "Contact", parent=styles["Normal"], fontName="Helvetica", fontSize=8.8,
+        leading=12.5, textColor=MUTED, spaceAfter=4,
     )
     section = ParagraphStyle(
         "Section", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10,
-        leading=13, textColor=ACCENT, spaceBefore=12, spaceAfter=6,
+        leading=13, textColor=ACCENT, spaceBefore=10, spaceAfter=2,
     )
     role = ParagraphStyle(
-        "Role", parent=styles["Heading3"], fontName="Helvetica-Bold", fontSize=11,
-        leading=14, textColor=INK, spaceAfter=1,
+        "Role", parent=styles["Heading3"], fontName="Helvetica-Bold", fontSize=10.5,
+        leading=13.5, textColor=INK, spaceBefore=6, spaceAfter=1,
+    )
+    meta = ParagraphStyle(
+        "Meta", parent=styles["Normal"], fontName="Helvetica", fontSize=8.6,
+        leading=11.5, textColor=MUTED, spaceAfter=3,
     )
     body = ParagraphStyle(
         "Body", parent=styles["BodyText"], fontName="Helvetica", fontSize=8.8,
-        leading=12.2, textColor=MUTED, spaceAfter=5,
+        leading=12.2, textColor=MUTED, spaceAfter=4,
     )
-    project = ParagraphStyle(
-        "Project", parent=body, leftIndent=9, borderPadding=(0, 0, 0, 6),
-        borderColor=ACCENT, borderWidth=1, borderLeft=True, spaceAfter=5,
-    )
-    chip = ParagraphStyle(
-        "Chip", parent=body, fontSize=8, leading=10, textColor=INK, alignment=TA_LEFT,
-    )
-    small = ParagraphStyle(
-        "Small", parent=body, fontSize=8, leading=10.5, spaceAfter=2,
+    bullet = ParagraphStyle(
+        "Bullet", parent=body, leftIndent=10, bulletIndent=2, spaceAfter=3,
     )
 
+    def heading(label: str) -> list[object]:
+        return [
+            Paragraph(label, section),
+            HRFlowable(width="100%", thickness=0.6, color=RULE, spaceBefore=0, spaceAfter=4),
+        ]
+
+    links = " | ".join(
+        f'<link href="{profile[key]}" color="#626978">{esc(bare_url(profile[key]))}</link>'
+        for key in ("linkedin", "github")
+    )
     story: list[object] = [
         Paragraph(esc(profile["name"]), name),
-        Paragraph(esc(profile["title"]) + " | Engineering leadership and AI platforms", title),
+        Paragraph(esc(profile["title"]), title),
         Paragraph(
-            f"{esc(profile['location'])} | {esc(profile['email'])} | {esc(profile['phone'])} | {esc(profile['openTo'])}",
+            f"{esc(profile['location'])} | {esc(profile['email'])} | {esc(profile['phone'])}",
             contact,
         ),
-        Paragraph("PROFESSIONAL SUMMARY", section),
-        Paragraph(esc(profile["summary"]), body),
+        Paragraph(f"{links} | {esc(profile['openTo'])}", contact),
+        KeepTogether([*heading("PROFESSIONAL SUMMARY"), Paragraph(esc(profile["summary"]), body)]),
+        *heading("PROFESSIONAL EXPERIENCE"),
     ]
-
-    story.extend([Spacer(1, 2 * mm), Paragraph("PROFESSIONAL EXPERIENCE", section)])
 
     for job in experience:
         block: list[object] = [
-            Paragraph(esc(job["role"]) + " - " + esc(job["company"]), role),
-            Paragraph(esc(job["period"]), small),
+            Paragraph(esc(job["role"]), role),
+            Paragraph(esc(job["company"]) + " | " + period_text(job["period"]), meta),
             Paragraph(esc(job["summary"]), body),
         ]
         for item in job.get("projects", []):
-            block.append(Paragraph(f"<b>{esc(item['name'])}</b> - {esc(item['summary'])}", project))
-        block.append(Paragraph("<b>Stack:</b> " + ", ".join(esc(item) for item in job["stack"]), small))
+            block.append(Paragraph(
+                f"<bullet>&bull;</bullet><b>{esc(item['name'])}:</b> {esc(item['summary'])}", bullet,
+            ))
+        block.append(Paragraph(
+            "<b>Technologies:</b> " + ", ".join(esc(item) for item in job["stack"]), meta,
+        ))
         story.append(KeepTogether(block))
 
-    story.extend([PageBreak(), Paragraph("TECHNICAL SKILLS", section)])
-    for group in skills:
-        labels = [f"* {item}" for item in group.get("star", [])] + group["skills"]
-        story.append(Paragraph(f"<b>{esc(group['title'])}</b> - {esc(', '.join(labels))}", body))
+    groups = [
+        Paragraph(
+            f"<b>{esc(group['title'])}:</b> {esc(', '.join(list(group.get('star', [])) + list(group['skills'])))}",
+            body,
+        )
+        for group in skills
+    ]
+    story.append(KeepTogether([*heading("TECHNICAL SKILLS"), groups[0]]))
+    story.extend(groups[1:])
 
     story.extend([
-        Paragraph("LEADERSHIP FOCUS", section),
-        Paragraph(
-            "Architecture direction, delivery planning, code review, mentoring, platform modernization, and building practical AI capabilities that can be operated in production.",
-            body,
-        ),
-        Paragraph("EDUCATION", section),
-        Paragraph(esc(profile["education"]), body),
-        Paragraph("LANGUAGES", section),
-        Paragraph(esc(", ".join(profile["languages"])), body),
-        Paragraph("PERSONAL DETAILS", section),
-        Paragraph("<b>Date of Birth:</b> " + esc(profile["dateOfBirth"]), body),
-        Paragraph("<b>Hobbies:</b> " + esc(", ".join(profile["hobbies"])), body),
-        Paragraph("<b>Marital Status:</b> " + esc(profile["maritalStatus"]), body),
+        KeepTogether([
+            *heading("LEADERSHIP FOCUS"),
+            Paragraph(
+                "Architecture direction, delivery planning, code review, mentoring, platform modernization, and building practical AI capabilities that can be operated in production.",
+                body,
+            ),
+        ]),
+        KeepTogether([*heading("EDUCATION"), Paragraph(esc(profile["education"]), body)]),
+        KeepTogether([*heading("LANGUAGES"), Paragraph(esc(", ".join(profile["languages"])), body)]),
+        KeepTogether([
+            *heading("PERSONAL DETAILS"),
+            Paragraph("<b>Date of Birth:</b> " + esc(profile["dateOfBirth"]), body),
+            Paragraph("<b>Hobbies:</b> " + esc(", ".join(profile["hobbies"])), body),
+            Paragraph("<b>Marital Status:</b> " + esc(profile["maritalStatus"]), body),
+        ]),
     ])
 
     for output in OUTPUTS[:1]:
         output.parent.mkdir(parents=True, exist_ok=True)
         doc = ResumeDocTemplate(
             str(output), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-            topMargin=22 * mm, bottomMargin=17 * mm, title="Sujit Pranav Reddy - Recruiter Resume",
+            topMargin=18 * mm, bottomMargin=15 * mm, title="Sujit Pranav Reddy - Resume",
             author="Sujit Pranav Reddy",
         )
         doc.build(story)

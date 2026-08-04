@@ -36,6 +36,7 @@ import {
   type MotionName,
 } from "@/lib/journey/config";
 import { walkHeight } from "@/lib/journey/terrain";
+import { addMetres } from "@/lib/journey/passport";
 import { spineProgress, resetCursor, type RouteStep } from "@/lib/journey/graph";
 import {
   game,
@@ -111,6 +112,11 @@ function advanceRoute(nav: Nav, metres: number, edgeLens: Map<string, number>) {
     nav.route = [];
     nav.step = 0;
   }
+  // Ground actually covered this frame — whatever the budget didn't spend was
+  // never walked (the route ended first). This is the one integrator both the
+  // real avatar and the capsule fallback share, so the passport's distance can
+  // only be counted here, and it can only be counted once.
+  addMetres(metres - budget);
 }
 
 /** Metres left between the cursor and the route's destination. */
@@ -429,11 +435,13 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
   }, [loadMotion]);
 
   // Shadows on every mesh + LIVING snow on his up-facing surfaces. He walks
-  // through the snowfall, so his shoulders / head / hair gather some — but NOT
-  // his legs or hands, which swing through every stride and would shed it. We pass
-  // the avatar's bind feet→head extent so applyTopSnow can gate the snow to the
-  // upper body by each vertex's animated height (skinned variant → tracks the live
-  // pose). `dynamic.hold` keys off the Avaturn mesh names: hair nests snow, cloth
+  // through the snowfall, so his shoulders gather some — but NOT his legs or
+  // hands, which swing through every stride and would shed it, and NOT his HAIR:
+  // the crown cap read as a bald patch / white streak at portrait distance, which
+  // is the one framing the camera holds longest. Snow now lives on cloth and skin
+  // only. We pass the avatar's bind feet→head extent so applyTopSnow can gate the
+  // snow to the upper body by each vertex's animated height (skinned variant →
+  // tracks the live pose). `dynamic.hold` keys off the Avaturn mesh names: cloth
   // holds most of it, warm skin (avaturn_body = face/nose/neck) keeps only passing
   // flecks. The cover level itself is simulated per frame in useFrame below.
   // The per-material guard makes shared avatar materials safe.
@@ -456,9 +464,23 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
     const bodyBounds =
       Number.isFinite(minY) && maxY > minY ? { min: minY, max: maxY } : undefined;
 
+    const isHair = (name: string) => name.toLowerCase().includes("hair");
+    const matsOf = (m: THREE.Mesh) => (Array.isArray(m.material) ? m.material : [m.material]);
+
+    // Hair is excluded by MATERIAL, not by mesh. applyTopSnow tags a material the
+    // first time it patches it, so if the hair ever shared one with the cloth,
+    // skipping the hair MESH alone would still leave the crown snowed the moment
+    // the cloth mesh patched it. Collect the hair's materials up front and skip
+    // them wherever they turn up — the worst case is a shared material losing its
+    // snow too, which is the harmless direction to fail in.
+    const hairMats = new Set<THREE.Material>();
+    gltf.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && isHair(m.name)) matsOf(m).forEach((mat) => hairMats.add(mat));
+    });
+
     const holdFor = (name: string) => {
       const n = name.toLowerCase();
-      if (n.includes("hair")) return 1.0; // snow nests in hair
       if (n.includes("body")) return 0.35; // warm skin — face/nose shed almost all of it
       return 0.9; // clothing shoulders
     };
@@ -468,14 +490,14 @@ function AvatarModel({ url, edgeCurves, nav, onLoaded, onReady, onArrive }: Prop
       m.layers.enable(AVATAR_LIGHT_LAYER);
       m.castShadow = true;
       m.frustumCulled = false;
-      const mats = Array.isArray(m.material) ? m.material : [m.material];
-      mats.forEach((mat) =>
+      matsOf(m).forEach((mat) => {
+        if (hairMats.has(mat)) return; // no snow in the hair
         applyTopSnow(mat as THREE.Material, {
           skinned: true,
           bodyBounds,
           dynamic: { hold: holdFor(m.name) },
-        }),
-      );
+        });
+      });
     });
   }, [gltf]);
 

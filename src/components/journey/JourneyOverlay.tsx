@@ -6,23 +6,36 @@ import { Canvas } from "@react-three/fiber";
 import { useProgress } from "@react-three/drei";
 import Scene from "./Scene";
 import GameHud from "./GameHud";
-import JourneyMap from "./JourneyMap";
+import JourneyMap, { type TravelMode } from "./JourneyMap";
 import AskPanel from "./AskPanel";
+import AskDock from "./AskDock";
+import Passport from "./Passport";
 import DisplayAtmosphere, { type DisplayVisualTheme } from "./DisplayAtmosphere";
 import BoardContent from "./BoardContent";
 import MatrixTextFormation from "./MatrixTextFormation";
-import JourneyMusic from "./JourneyMusic";
+import Soundtrack from "@/components/Soundtrack";
 import type { Nav } from "./Avatar";
 import type { DisplayFocus } from "./CameraRig";
-import { resetGame, setSprint, pushToast } from "@/lib/journey/game";
+import { resetGame, setSprint, pushToast, avatarPos } from "@/lib/journey/game";
 import { STOPS, STOP_SIGN_OFFSETS, JUNCTION_SIGN_OFFSETS, stopNodeId } from "@/lib/journey/sections";
-import { ASK_TERMINAL } from "@/lib/journey/ask";
+import { ASK_TERMINAL, type AskDest } from "@/lib/journey/ask";
+import {
+  loadPassport,
+  markLandmark,
+  markStop,
+  markTourComplete,
+  passport,
+  passportSummary,
+} from "@/lib/journey/passport";
+import { setAnalyticsContext, track } from "@/lib/journey/analytics";
 import {
   spawnAt,
   placeCursor,
   resetCursor,
   edgePointXZ,
   nodeById,
+  routeToPoint,
+  assignRoute,
   START_ANCHOR,
 } from "@/lib/journey/graph";
 import {
@@ -34,7 +47,7 @@ import {
   type WarpPose,
 } from "@/lib/journey/warp";
 import { TONEMAP_EXPOSURE } from "@/lib/journey/config";
-import { panelProject, projectById } from "@/lib/journey/projects";
+import { PROJECT_SITES, panelProject, projectById } from "@/lib/journey/projects";
 import {
   TOUR,
   TOUR_MINUTES,
@@ -90,6 +103,23 @@ function boardLook(id: string): Look | null {
 type DisplayTheme = DisplayVisualTheme;
 type DisplayPresentation = { theme: DisplayTheme; kicker: string; title: string; glyph: string };
 
+/** The project landmark the avatar is standing at, if any — what the summoned
+ *  assistant offers a question about. 34 m is "this is filling your screen",
+ *  measured straight-line because a suggestion doesn't need graph distance. */
+const NEAR_M = 34;
+function nearestSite(): { id: string; title: string } | null {
+  let best: { id: string; title: string } | null = null;
+  let bestD = NEAR_M * NEAR_M;
+  for (const p of PROJECT_SITES) {
+    const d = (p.x - avatarPos.x) ** 2 + (p.z - avatarPos.z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = { id: p.id, title: p.title };
+    }
+  }
+  return best;
+}
+
 function displayPresentation(id: string): DisplayPresentation {
   const site = panelProject(id);
   if (site) return { theme: "project", kicker: "PROJECT LANDMARK · INDUSTRIAL EXHIBIT", title: site.title, glyph: "▰" };
@@ -104,8 +134,6 @@ function displayPresentation(id: string): DisplayPresentation {
       return { theme: "blueprint", kicker: "SKILLS · BLUEPRINT WALL", title: "The stack I build with", glyph: "⌘" };
     case "contact":
       return { theme: "signal", kicker: "SUMMIT · SIGNAL DISPLAY", title: "Social Trail · connect with me", glyph: "⌁" };
-    case "social":
-      return { theme: "social", kicker: "TOWN SQUARE · SOCIAL DIRECTORY", title: "Find me online", glyph: "✦" };
     case "ask":
       return { theme: "terminal", kicker: "CAMERA LINKED · RÉSUMÉ TERMINAL", title: "Ask my résumé anything", glyph: ">_" };
     default:
@@ -135,6 +163,7 @@ export default function JourneyOverlay() {
   }, []);
 
   const [mounted, setMounted] = useState(false);
+  const [classicView, setClassicView] = useState(false);
   const [capable, setCapable] = useState(false);
   const [active, setActive] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -143,6 +172,13 @@ export default function JourneyOverlay() {
   const [displayFocus, setDisplayFocus] = useState<DisplayFocus | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [walking, setWalking] = useState(false);
+  // How a click on a destination moves the avatar — walk / run / teleport.
+  // Teleport is the default: it's what the map has always done, and the modes
+  // are an opt-in for visitors who'd rather see the road go past.
+  const [travelMode, setTravelMode] = useState<TravelMode>("teleport");
+  // Sprint was switched on by a run-mode route (not by the visitor holding
+  // Shift), so arrival/cancel must switch it back off.
+  const runRoute = useRef(false);
   const [openingShot, setOpeningShot] = useState(true);
   const [openingIntro, setOpeningIntro] = useState(false);
   const [launch, setLaunch] = useState(0); // remount key to replay the journey
@@ -158,6 +194,18 @@ export default function JourneyOverlay() {
   // is only there to light the button up.
   const [tourQueued, setTourQueued] = useState(false);
   const wantTour = useRef(false);
+  // --- the summoned assistant ----------------------------------------------
+  const [askOpen, setAskOpen] = useState(false);
+  const [askNearby, setAskNearby] = useState<{ id: string; title: string } | null>(null);
+  // --- passport ------------------------------------------------------------
+  // Read once on mount so the gate can greet a returning visitor with what they
+  // already found, before the world (and the rest of the passport UI) is up.
+  const [returning, setReturning] = useState<{ pct: number; done: number; total: number } | null>(
+    null,
+  );
+  // Where a WALK was aimed, so arriving can stamp the passport. Teleports stamp
+  // at the click, but a walk isn't a visit until the avatar actually gets there.
+  const walkTarget = useRef<string>("");
 
   const { progress } = useProgress();
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
@@ -210,6 +258,19 @@ export default function JourneyOverlay() {
     };
   }, [openingShot]);
 
+  // Hydrate the passport before anything else can stamp it, and hand the
+  // analytics layer the shape of the visit so every later event carries it.
+  useEffect(() => {
+    loadPassport();
+    const s = passportSummary();
+    if (passport.returning && s.done > 0) setReturning({ pct: s.pct, done: s.done, total: s.total });
+    setAnalyticsContext({
+      visit: passport.data.visits,
+      returning: passport.returning,
+      pct: s.pct,
+    });
+  }, []);
+
   // Decide capability once on the client. Immersive-by-default on capable
   // desktops; opt-in elsewhere so mobiles / reduced-motion users aren't forced
   // into a heavy WebGL scene.
@@ -226,7 +287,11 @@ export default function JourneyOverlay() {
     }
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const small = window.innerWidth < 820;
-    setCapable(webgl && !reduce && !coarse && !small);
+    const ok = webgl && !reduce && !coarse && !small;
+    setCapable(ok);
+    // Who never even gets offered the world, and why — the single most useful
+    // number for deciding whether to build the mobile tier.
+    track("journey_gate", { capable: ok, webgl, coarse, reduced: reduce, small });
   }, [reduce]);
 
   // Reflect the avatar's walking state (drives button disabling / caption).
@@ -255,7 +320,11 @@ export default function JourneyOverlay() {
     setSprint(false);
     setTourAt(null);
     setTourQueued(false);
-    if (finished) pushToast("That's the tour — the trail's yours now.", "board");
+    track(finished ? "tour_complete" : "tour_abandon");
+    if (finished) {
+      markTourComplete();
+      pushToast("That's the tour — the trail's yours now.", "board");
+    }
   }, []);
 
   // A warp arrival in flight — the camera shot and the card it has queued (see
@@ -278,6 +347,11 @@ export default function JourneyOverlay() {
     setShowWelcome(false);
     setPanelId(null);
     setDisplayFocus(focus);
+    // Reading a board is the strongest "they actually consumed this" signal on
+    // the site — it's the stamp AND the event worth having.
+    markStop(focus.id);
+    markLandmark(focus.id);
+    track("display_open", { id: focus.id });
   }, [endTour, nav, stopWarp]);
 
   const closeDisplay = useCallback(() => setDisplayFocus(null), []);
@@ -299,6 +373,7 @@ export default function JourneyOverlay() {
     setActive(true);
     setPhase("loading");
     setLaunch((n) => n + 1);
+    track("journey_start");
   }, [nav, endTour, stopWarp]);
 
   // --- TELEPORT ------------------------------------------------------------
@@ -352,6 +427,10 @@ export default function JourneyOverlay() {
     (id: string) => {
       if (!nodeById(id)) return;
       setShowWelcome(false);
+      // A teleport IS the arrival, so the stamp lands here rather than waiting
+      // for an onArrive that a warp never fires.
+      markStop(id);
+      track("stop_open", { id, via: "teleport" });
       if (id === "ask") {
         warpToPoint(
           ASK_TERMINAL.anchor.edgeId,
@@ -403,7 +482,85 @@ export default function JourneyOverlay() {
     [warpToPoint],
   );
 
+  // --- WALK / RUN ----------------------------------------------------------
+  // The other two travel modes. Same destinations as the teleports above, but
+  // the avatar takes the roads: route from wherever it stands to the target
+  // point, hand the route to the Avatar's frame loop, and let the chase camera
+  // do the rest. Run is the same journey with the sprint gait.
+
+  /** Start walking/running to a point on the graph. False = unreachable. */
+  const walkRoute = useCallback(
+    (edgeId: string, tAB: number, destNodeId: string | null, run: boolean): boolean => {
+      endTour(); // the visitor is steering now
+      stopWarp(); // any arrival shot still playing belongs to the last click
+      const r = routeToPoint(nav.edgeId, nav.tAB, edgeId, tAB);
+      if (!r) return false;
+      pending.current = { panel: "" };
+      setPanelId(null);
+      setShowWelcome(false);
+      assignRoute(nav, r, destNodeId);
+      setSprint(run);
+      runRoute.current = run;
+      return true;
+    },
+    [nav, endTour, stopWarp],
+  );
+
+  /** Mode-aware twin of `warpTo` — every surface that names a stop/junction. */
+  const goTo = useCallback(
+    (id: string) => {
+      if (travelMode === "teleport") {
+        warpTo(id);
+        return;
+      }
+      if (!nodeById(id)) return;
+      const t =
+        id === "ask"
+          ? ASK_TERMINAL.anchor
+          : id === "start"
+            ? START_ANCHOR
+            : spawnAt(stopNodeId(id));
+      // An unreachable target (shouldn't happen on a connected graph, but a bad
+      // anchor must not eat the click) falls back to the teleport.
+      if (!walkRoute(t.edgeId, t.tAB, stopNodeId(id), travelMode === "run")) {
+        warpTo(id);
+        return;
+      }
+      // Walking there is a promise, not an arrival — onArrive redeems it.
+      walkTarget.current = id;
+      setActiveId(id);
+    },
+    [travelMode, warpTo, walkRoute],
+  );
+
+  /** Mode-aware twin of `warpToAnchor` — landmarks, kiosks, games. */
+  const goToAnchor = useCallback(
+    (anchor: Anchor, look?: Look) => {
+      if (travelMode === "teleport") {
+        warpToAnchor(anchor, look);
+        return;
+      }
+      if (!walkRoute(anchor.edgeId, anchor.tAB, null, travelMode === "run")) {
+        warpToAnchor(anchor, look);
+        return;
+      }
+      setActiveId(""); // heading to a landmark, not a résumé stop
+    },
+    [travelMode, warpToAnchor, walkRoute],
+  );
+
   const onArrive = useCallback(() => {
+    // A run-mode route switched sprint on for the journey — arriving ends it.
+    if (runRoute.current) {
+      runRoute.current = false;
+      setSprint(false);
+    }
+    // The walk finished: the stop it was aimed at has now genuinely been reached.
+    if (walkTarget.current) {
+      markStop(walkTarget.current);
+      track("stop_open", { id: walkTarget.current, via: "walk" });
+      walkTarget.current = "";
+    }
     // Mid-tour: arriving is the cue to stop and read, not to open `pending`.
     if (touring.current) return;
     setPanelId(pending.current.panel || null);
@@ -423,7 +580,13 @@ export default function JourneyOverlay() {
     // theirs. The card it queued is left alone — Esc means "stop moving the
     // picture", not "undo the place I just clicked".
     endWarp();
+    // A cancelled run must not leave the sprint gait stuck on.
+    if (runRoute.current) {
+      runRoute.current = false;
+      setSprint(false);
+    }
     if (nav.route.length === 0) return; // not walking — nothing to cancel
+    walkTarget.current = ""; // stopped short: the stop was never actually reached
     pending.current = { panel: "" };
     nav.route = [];
     nav.step = 0;
@@ -463,6 +626,8 @@ export default function JourneyOverlay() {
           look.z,
           !reduce,
           b.id === "start" ? "architect" : "trail",
+          target.edgeId,
+          target.tAB,
         );
         setActiveId(b.id);
         return true;
@@ -471,7 +636,7 @@ export default function JourneyOverlay() {
       const site = projectById(b.id);
       if (!site) return false;
       if (!placeCursor(nav, site.anchor.edgeId, site.anchor.tAB)) return false;
-      beginWarp(site.x, site.z, !reduce);
+      beginWarp(site.x, site.z, !reduce, "trail", site.anchor.edgeId, site.anchor.tAB);
       setActiveId(""); // standing at a landmark, not at a résumé stop
       return true;
     },
@@ -479,6 +644,7 @@ export default function JourneyOverlay() {
   );
 
   const startTour = useCallback(() => {
+    track("tour_start");
     touring.current = true;
     tour.active = true;
     wantTour.current = false;
@@ -527,6 +693,8 @@ export default function JourneyOverlay() {
     if (!tourAt || tourAt.phase !== "read") return;
     const b = TOUR[tourAt.beat];
     if (!b) return;
+    // Where a tour is abandoned is the clearest read on which beat is too long.
+    track("tour_beat", { beat: tourAt.beat + 1, id: b.id });
     setPanelId(tourPanelId(b) || null);
     tour.cinematic = true;
     const t = setTimeout(() => advanceBeat(tourAt.beat), b.dwell * 1000);
@@ -535,6 +703,53 @@ export default function JourneyOverlay() {
       tour.cinematic = false;
     };
   }, [tourAt, advanceBeat]);
+
+  // --- the assistant, summoned ---------------------------------------------
+  // The terminal is still a place you can walk to; this is the same assistant
+  // brought to wherever you're standing, because the most useful thing on the
+  // site should not also be the thing you have to go and find.
+
+  const openAsk = useCallback(() => {
+    // Snapshot what's nearby AT OPEN — the avatar doesn't move while the dock is
+    // up, and a suggestion that reshuffled itself mid-read would be worse.
+    const near = nearestSite();
+    setAskNearby(near);
+    setAskOpen(true);
+    track("ask_open", { nearby: near?.id ?? null });
+  }, []);
+
+  /** An answer pointed somewhere real — take the avatar there. */
+  const walkToDest = useCallback(
+    (dest: AskDest) => {
+      setAskOpen(false);
+      setDisplayFocus(null); // the terminal's full-screen staging, if that's where we were
+      if (dest.stopId) {
+        goTo(dest.stopId);
+        return;
+      }
+      if (dest.anchor) {
+        const site = projectById(dest.id);
+        goToAnchor(dest.anchor, site ? { x: site.x, z: site.z } : undefined);
+      }
+    },
+    [goTo, goToAnchor],
+  );
+
+  // `/` summons the assistant from anywhere — the one shortcut worth teaching,
+  // so it's advertised on the HUD button rather than left to be discovered.
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || askOpen) return;
+      const el = document.activeElement as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      e.preventDefault();
+      openAsk();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, askOpen, openAsk]);
 
   // Esc is the keyboard twin of the on-screen Stop button. Bound only while the
   // HUD is live, and a no-op when not walking, so it never swallows Esc elsewhere.
@@ -554,6 +769,14 @@ export default function JourneyOverlay() {
   const onLoaded = useCallback(() => setPhase("building"), []);
   const onReady = useCallback(() => {
     setPhase("ready");
+    track("world_ready");
+    // NOT a "welcome back" toast here. Two reasons, both learned the hard way:
+    // the greeting is already on the launch gate AND the loading card a
+    // returning visitor just read, and the passport chip carries it from the
+    // first frame onward — a third copy would land on top of the opening
+    // cinematic. (It also wouldn't survive: the HUD mounts several seconds
+    // after this callback on a cold first frame, by which time a 3.2 s toast
+    // pushed here has already expired unseen.)
     // The opening portrait is only a loading composition. Once the avatar is
     // ready, release world-space labels so signposts, plaques, and kiosks
     // become visible and usable.
@@ -570,22 +793,26 @@ export default function JourneyOverlay() {
   }, [startTour]);
 
   const toClassic = useCallback((hash?: string) => {
+    track("leave_to_classic", { hash: hash ?? "" });
     endTour(); // leaving the world ends the tour with it
     setDisplayFocus(null);
     setActive(false);
     setPhase("idle");
-    if (hash) {
-      setTimeout(() => {
-        document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
-      }, 120);
-    }
+    // Remove the immersive overlay completely. Setting `active` to false by
+    // itself renders the launch gate again, which trapped Classic View behind
+    // the "click to enter" screen.
+    setClassicView(true);
+    window.setTimeout(() => {
+      if (hash) document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
   }, [endTour]);
 
   const panel = panelId ? renderPanel(panelId) : null;
   const presentation = displayFocus ? displayPresentation(displayFocus.id) : null;
   const displayContent = displayFocus ? renderPanel(displayFocus.id) : null;
 
-  if (!mounted) return null;
+  if (!mounted || classicView) return null;
 
   // Inactive: ask for one deliberate gesture before loading the immersive world.
   // Besides making the next step obvious, this click is the browser-approved
@@ -603,6 +830,21 @@ export default function JourneyOverlay() {
             <code className="jrnLaunchIndent">journey.start()</code>
           </span>
           <span className="jrnLaunchHint">click to enter</span>
+        </button>
+        {/* The launch gate is what a returning visitor actually meets first —
+            before the loading screen, before the world. If the site remembers
+            them, this is the moment to say so, not one click later. */}
+        {returning && (
+          <p className="jrnGateBack jrnLaunchBack">
+            Welcome back — <b>{returning.pct}%</b> of the trail found
+            <em> · {returning.total - returning.done} left to uncover</em>
+          </p>
+        )}
+        {/* The way out, offered before the way in. Entering the 3D world was the
+            only thing this screen let you do, so a visitor who just wants the
+            résumé had to load the whole world first. */}
+        <button className="jrnSkip jrnLaunchSkip" onClick={() => toClassic()}>
+          Skip to classic view →
         </button>
       </div>
     ) : null;
@@ -628,7 +870,7 @@ export default function JourneyOverlay() {
         <Scene
           nav={nav}
           activeId={activeId}
-          onPick={warpTo}
+          onPick={goTo}
           onLoaded={onLoaded}
           onReady={onReady}
           onArrive={onArrive}
@@ -639,7 +881,69 @@ export default function JourneyOverlay() {
           onDisplay={openDisplay}
         />
       </Canvas>
-      <JourneyMusic />
+      {/* The top row: the Trail, the soundtrack pill and the skip link, in one
+          flex line. They used to be placed independently and kept apart by
+          arithmetic; sharing a row means none of them needs to know how wide
+          the others render, and the Trail simply takes whatever is left over.
+          The stop list only exists once there's a world to walk. */}
+      <div className="jrnTopBar">
+        {/* Lifetime progress — the one thing on this site that remembers you.
+            It sat in the corner on its own coordinates while this row was
+            pushed clear of it by a hand-measured offset; in the row, the row's
+            own gap does that job and the offset is gone. Its checklist panel
+            travels with it and positions itself against the viewport. */}
+        <Passport active={phase === "ready"} hidden={!!displayFocus || askOpen} />
+        {phase === "ready" && (
+          /* The Trail — the stop list, in the chrome row beside the
+             soundtrack. It began as a tall left rail (which ate the column the
+             world itself wants), then took a row of its own; here it costs the
+             HUD no band at all. It scrolls sideways rather than wrapping — a
+             second line would push the whole HUD down after it. */
+          <nav className="jrnMenu" aria-label="Trail stops" data-lenis-prevent>
+            <div className="jrnMenuTitle">
+              The Trail<em>My Journey</em>
+            </div>
+            {STOPS.filter((s) => s.id !== "contact").map((s) => (
+              <button
+                key={s.id}
+                className="jrnMenuItem"
+                data-active={s.id === activeId ? "1" : undefined}
+                disabled={walking}
+                onClick={() => goTo(s.id)}
+                /* The place name alone means nothing to a first-time visitor
+                   ("The Root"? "The Arc"?). The bar has no room for a second
+                   line, so what's there rides along as the tooltip. */
+                title={s.sub}
+              >
+                <span className="jrnZone" data-zone={s.zone} />
+                <span className="jrnMenuText">
+                  <b>{s.id === "start" ? "The Architect" : s.label}</b>
+                </span>
+              </button>
+            ))}
+            <button
+              className={"jrnMenuItem jrnSocialMenuItem"}
+              type="button"
+              data-active={activeId === "contact" ? "1" : undefined}
+              disabled={walking}
+              onClick={() => goTo("contact")}
+              title="Social links · direct message"
+            >
+              <span className={"jrnSocialMenuIcon"} aria-hidden="true">✦</span>
+              <span className={"jrnMenuText"}>
+                <b>Social Trail</b>
+              </span>
+            </button>
+          </nav>
+        )}
+        <Soundtrack />
+        {/* Offered at every phase, not just once the world is walkable. Someone
+            who never wanted the 3D tour shouldn't have to sit through the load
+            to find the way out. */}
+        <button className="jrnSkip" onClick={() => toClassic()}>
+          Skip to classic view →
+        </button>
+      </div>
 
       {/* Loading / assembling gate — and the title card. This is the FIRST thing
           anyone sees, and it used to be a bare progress bar, so the site opened
@@ -662,6 +966,14 @@ export default function JourneyOverlay() {
             <p className="jrnGateTag">
               Walk through 12+ years of engineering—one milestone, system, and story at a time.
             </p>
+            {/* Been here before? Then this isn't a first visit, and the loading
+                screen is the first place that can say so. */}
+            {returning && (
+              <p className="jrnGateBack">
+                Welcome back — <b>{returning.pct}%</b> of the trail found
+                <em> · {returning.total - returning.done} left to uncover</em>
+              </p>
+            )}
             <div className="jrnRing" role="progressbar" aria-label="Loading the 3D trail" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ transform: `scaleX(${Math.max(0.04, progress / 100)})` }} />
             </div>
@@ -692,13 +1004,20 @@ export default function JourneyOverlay() {
       {/* HUD — only once the reveal has completed */}
       {phase === "ready" && (
         <>
-          <button className="jrnSkip" onClick={() => toClassic()}>
-            Skip to classic view →
-          </button>
-          {/* The left rail: the stop list, with the trail map parked under it.
-              They're one flex column rather than two independently-placed
-              cards, so the map can never land on top of the menu however far
-              the menu's content runs — see .jrnLeft. */}
+          {/* The shortcut, advertised. A key nobody is told about is a key
+              nobody presses, and this is the fastest route to an answer on the
+              whole site. */}
+          {!displayFocus && !askOpen && (
+            <button className="jrnAskSummon" onClick={openAsk} title="Ask my résumé (press /)">
+              <b>Ask my résumé</b>
+              <kbd>/</kbd>
+            </button>
+          )}
+          {/* The left rail: the nameplate, the tour offer and the trail map, in
+              one flex column rather than three independently-placed cards, so
+              they can never land on top of each other however far any of them
+              grows — see .jrnLeft. The stop list is NOT in here: it rides in
+              the top row (.jrnMenu), above. */}
           {openingIntro && !displayFocus && (
             <aside className="jrnOpeningIntro" aria-label="Opening introduction">
               <div className="jrnOpeningIntroStep">01 · THE TRAILHEAD</div>
@@ -719,53 +1038,18 @@ export default function JourneyOverlay() {
           )}
           <div className="jrnLeft">
             {/* Who this is. The journey opens straight into a snowy world with
-                no chrome that names its owner — this nameplate sits above the
-                trail menu so "whose portfolio is this?" is answered at a
-                glance, from the first frame onward. */}
-            <nav className="jrnMenu" aria-label="Trail stops" data-lenis-prevent>
-              <div className="jrnWho">
-                <div className="jrnWhoName">{profile.name}</div>
-                <div className="jrnWhoRole">{profile.title}</div>
-                <div className="jrnWhoKicker">Résumé · Explore it in 3D</div>
-              </div>
-              <div className="jrnMenuTitle">The Trail · My Journey</div>
-              {STOPS.filter((s) => s.id !== "contact").map((s) => (
-                <button
-                  key={s.id}
-                  className="jrnMenuItem"
-                  data-active={s.id === activeId ? "1" : undefined}
-                  disabled={walking}
-                  onClick={() => warpTo(s.id)}
-                >
-                  <span className="jrnZone" data-zone={s.zone} />
-                  <span className="jrnMenuText">
-                    <b>{s.id === "start" ? "The Architect" : s.label}</b>
-                    {/* The place name alone means nothing to a first-time
-                        visitor ("The Root"? "The Arc"?) — say what.s there. */}
-                    <em>{s.sub}</em>
-                  </span>
-                </button>
-              ))}
-              <button
-                className={"jrnMenuItem jrnSocialMenuItem"}
-                type="button"
-                data-active={activeId === "contact" ? "1" : undefined}
-                disabled={walking}
-                onClick={openSocialTrail}
-              >
-                <span className={"jrnSocialMenuIcon"} aria-hidden="true">✦</span>
-                <span className={"jrnMenuText"}>
-                  <b>Social Trail</b>
-                  <em>Social links · direct message</em>
-                </span>
-              </button>
-            </nav>
+                no chrome that names its owner — this nameplate holds the top of
+                the rail so "whose portfolio is this?" is answered at a glance,
+                from the first frame onward. */}
+            <div className="jrnWho">
+              <div className="jrnWhoName">{profile.name}</div>
+              <div className="jrnWhoRole">{profile.title}</div>
+              <div className="jrnWhoKicker">Résumé · Explore it in 3D</div>
+            </div>
 
             {/* Nobody has to know the map to see the whole résumé — this walks
-                it for them. Sits under the Trail menu so the offer is standing
-                whenever they run out of ideas, not only on the title card.
-                Outside the <nav> because the stop list scrolls once the rail
-                is tight, and this offer must never scroll out of sight. */}
+                it for them. Sits under the nameplate so the offer is standing
+                whenever they run out of ideas, not only on the title card. */}
             {!tourAt && (
               <button className="jrnTour" onClick={startTour}>
                 <b>▶ Show me around</b>
@@ -773,16 +1057,43 @@ export default function JourneyOverlay() {
               </button>
             )}
 
-            {/* The map TELEPORTS rather than routing — see warpToPoint above.
-                The Trail menu, signposts, map, and guided tour all
-                use teleport arrival shots; walking remains available for
-                manual movement, but is not forced between destinations. */}
-            <JourneyMap
-              active
-              activeId={activeId}
-              onPick={warpTo}
-              onPickAnchor={warpToAnchor}
-            />
+            {/* How a destination click travels. Teleport is the default (a map
+                you wait ninety seconds to use is not doing its job) — walk and
+                run are for visitors who want the journey itself. Applies to the
+                map, the Trail menu, and the in-world signposts; the guided tour
+                keeps its own teleport choreography. Docked WITH the map card so
+                the pair survives the ≤900px layout, where the rail dissolves
+                but the map keeps its corner. */}
+            <div className="jrnMapDock">
+              <div
+                className="jrnGoMode"
+                role="radiogroup"
+                aria-label="How clicking a destination moves the avatar"
+              >
+                {(["walk", "run", "teleport"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={travelMode === m}
+                    data-active={travelMode === m ? "1" : undefined}
+                    onClick={() => {
+                      setTravelMode(m);
+                      track("travel_mode", { mode: m });
+                    }}
+                  >
+                    {m === "walk" ? <>🚶 Walk</> : m === "run" ? <>🏃 Run</> : <>⚡ Teleport</>}
+                  </button>
+                ))}
+              </div>
+              <JourneyMap
+                active
+                activeId={activeId}
+                mode={travelMode}
+                onPick={goTo}
+                onPickAnchor={goToAnchor}
+              />
+            </div>
           </div>
 
           {/* The tour's own control strip. It replaces the Stop pill (same
@@ -852,10 +1163,15 @@ export default function JourneyOverlay() {
             </aside>
           )}
 
-          {/* (The cancel-the-walk pill used to live here. Every destination
-              teleports now, so the guided tour is the only thing that walks,
-              and it carries its own End button in the tour bar — the pill could
-              no longer appear. Esc still cancels, via cancelWalk.) */}
+          {/* Cancel-the-walk pill — the on-screen twin of Esc, back now that
+              the walk/run travel modes can put a long road between a click and
+              its destination. The tour has its own End button in the tour bar. */}
+          {walking && !tourAt && (
+            <button className="jrnStop" onClick={cancelWalk} title="Stop here (Esc)">
+              <span className="jrnStopSq" aria-hidden="true" />
+              Stop here
+            </button>
+          )}
 
           {displayFocus && presentation && (
             <div
@@ -886,7 +1202,7 @@ export default function JourneyOverlay() {
                 <div className={"jrnDisplayStage" + (displayFocus.id === "ask" ? " jrnTerminalStage" : "")} data-lenis-prevent>
                   {displayFocus.id === "ask" ? (
                     <MatrixTextFormation key={displayFocus.id}>
-                      <AskPanel variant="terminal" autoEngage />
+                      <AskPanel variant="terminal" autoEngage onWalkTo={walkToDest} />
                     </MatrixTextFormation>
                   ) : (
                     <div className={`jrnDisplayContent jrnDisplayContent--${presentation.theme}`}>
@@ -901,6 +1217,14 @@ export default function JourneyOverlay() {
           )}
         </>
       )}
+
+      {/* The assistant, wherever you're standing. */}
+      <AskDock
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        onWalkTo={walkToDest}
+        nearby={askNearby}
+      />
 
       {/* Mini-game HUD: secrets, toasts, the games directory + modals. It hides
           its right-hand controls while a résumé panel is open — that panel is

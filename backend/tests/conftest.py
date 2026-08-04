@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app import config, ratelimit
+from app import config, guard, ratelimit
 from app.main import app
 
 
@@ -24,14 +24,18 @@ def neutral_config(monkeypatch):
     monkeypatch.setattr(config, "ADMIN_ENABLED", False)
     monkeypatch.setattr(config, "RATE_LIMIT_ENABLED", True)
     monkeypatch.setattr(config, "TRUST_PROXY_HEADERS", True)
+    monkeypatch.setattr(config, "CHAT_GUARD_ENABLED", True)
+    monkeypatch.setattr(config, "CHAT_CACHE_ENABLED", True)
 
-    # Limiters are module-level singletons, so state leaks between tests unless
-    # it's explicitly dropped on both sides of the test.
+    # Limiters and the answer cache are module-level singletons, so state leaks
+    # between tests unless it's explicitly dropped on both sides of the test.
     for limiter in ratelimit.ALL_LIMITERS:
         limiter.clear()
+    guard.ANSWER_CACHE.clear()
     yield
     for limiter in ratelimit.ALL_LIMITERS:
         limiter.clear()
+    guard.ANSWER_CACHE.clear()
 
 
 @pytest.fixture

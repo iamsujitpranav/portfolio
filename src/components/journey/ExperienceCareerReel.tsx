@@ -1,17 +1,30 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import type { Job } from "@content/resume";
 
 const wrap = (index: number, total: number) => (index + total) % total;
 
 export default function ExperienceCareerReel({ jobs }: { jobs: Job[] }) {
   const [active, setActive] = useState(0);
+  const pointerStart = useRef<number | null>(null);
   const total = jobs.length;
   const job = jobs[active];
   if (!job) return null;
 
   const move = (direction: -1 | 1) => setActive((current) => wrap(current + direction, total));
+  const onPointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    pointerStart.current = event.clientX;
+  };
+
+  const onPointerUp = (event: PointerEvent<HTMLElement>) => {
+    if (pointerStart.current === null) return;
+    const movement = event.clientX - pointerStart.current;
+    if (Math.abs(movement) > 48) move(movement < 0 ? 1 : -1);
+    pointerStart.current = null;
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
@@ -23,7 +36,7 @@ export default function ExperienceCareerReel({ jobs }: { jobs: Job[] }) {
   };
 
   return (
-    <section className="jrnExperienceReel" aria-label="Career chapter archive" aria-roledescription="carousel" tabIndex={0} onKeyDown={onKeyDown}>
+    <section className="jrnExperienceReel" aria-label="Career chapter archive" aria-roledescription="carousel" tabIndex={0} onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={() => { pointerStart.current = null; }} style={{ "--career-count": total } as CSSProperties}>
       <div className="jrnExperienceReadout">
         <span><i /> CAREER ARCHIVE // SHIPPED SYSTEMS</span>
         <b>CHAPTER {String(active + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</b>

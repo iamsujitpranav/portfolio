@@ -7,6 +7,7 @@ import { Html } from "@react-three/drei";
 import { POND, CURL_SHEET } from "@/lib/journey/config";
 import { POND_WATER_Y } from "@/lib/journey/terrain";
 import { pushToast, celebrate, game } from "@/lib/journey/game";
+import { markGame } from "@/lib/journey/passport";
 
 // Curling on the frozen pond. The sheet lives on the pond's SOUTH lobe — the
 // bridge crosses the north half, so the hack (throwing spot) and the house are
@@ -101,6 +102,9 @@ export default function Curling() {
     game.curlEndScore = total;
     // A good end is worth a celebration; three on the button is worth the best one.
     if (total >= 18) celebrate(total >= 26);
+    // Landing anything in the house is the passport's bar — throwing three
+    // stones wide is a game played, not a game won.
+    markGame("curling", inHouse > 0 ? "won" : "played");
     window.setTimeout(() => {
       stones.current = [];
       groups.current = [];

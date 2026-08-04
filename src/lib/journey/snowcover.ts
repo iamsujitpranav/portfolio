@@ -27,8 +27,10 @@
 // oscillates on its own clock is thresholded at the cover level — cover rising
 // grows patches in one by one, cover falling sloughs them off chunk by chunk,
 // and even at steady cover the drift means a clump quietly drops off a shoulder
-// while another gathers on the hood. Skin holds far less than hair or cloth
-// (uAvHold), so the face sheds while the beanie keeps its drift.
+// while another gathers on the hood. Skin holds far less than cloth (uAvHold),
+// so the face sheds while the shoulders keep their drift. The HAIR is not
+// patched at all (Avatar.tsx skips its materials) — a cap on the crown read as a
+// white streak in the portrait framing the camera holds longest.
 
 import * as THREE from "three";
 import { sunState } from "./daynight";
@@ -172,7 +174,7 @@ const F_SPARKLE = /* glsl */ `
  * feet→head Y extent) to gate snow to the UPPER body only — shoulders and head,
  * never the legs or hands. Pass `dynamic: { hold }` (avatar) to swap the static
  * cap for the LIVING simulation readout — hold is this surface's snow-keeping
- * ceiling (hair ~1, cloth ~0.9, warm skin ~0.35).
+ * ceiling (cloth ~0.9, warm skin ~0.35). Don't call this on hair at all.
  */
 export function applyTopSnow(
   mat: THREE.Material,

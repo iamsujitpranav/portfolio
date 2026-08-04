@@ -50,6 +50,15 @@ export type ProjectSite = {
   fx: number;
   fz: number;
   clearR: number;
+  /**
+   * How far in front of the site origin the plaque post is planted, in metres
+   * along the front vector. Defaults to a fraction of clearR, which assumes the
+   * structure's own geometry stays well inside its clearing — NOT true when a
+   * landmark pushes buildings forward (the Foundry's workshops sit at +5.6),
+   * which plants the board inside a wall. Set it explicitly in that case:
+   * clear of the front-most solid, still short of the road.
+   */
+  plaqueZ?: number;
   /** Where "walk me there" delivers you (nearest path point). */
   anchor: { edgeId: string; tAB: number };
 };
@@ -94,6 +103,11 @@ const SITES: Omit<ProjectSite, "yaw">[] = [
     fx: -0.387,
     fz: -0.922,
     clearR: 11,
+    // The three workshops stand at +5.6 with a 3.6-deep pad, so the front-most
+    // solid is z=7.4 — past the clearR*0.62 (6.82) default, which planted the
+    // board inside the middle workshop. 9.0 clears the pad by 1.6 m and still
+    // leaves 4.0 m to the road (site→road is 13.0).
+    plaqueZ: 9.0,
     anchor: { edgeId: "waterfront~experience", tAB: 0.3491 },
   },
   {
@@ -112,6 +126,9 @@ const SITES: Omit<ProjectSite, "yaw">[] = [
     fx: -0.965,
     fz: -0.261,
     clearR: 8,
+    // Was a hard-coded exception in Landmarks.tsx; same value, kept with the
+    // rest of the site's numbers.
+    plaqueZ: 6.2,
     anchor: { edgeId: "cross~contact", tAB: 0.7396 },
   },
   {

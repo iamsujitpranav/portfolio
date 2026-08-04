@@ -9,7 +9,6 @@ export type DisplayVisualTheme =
   | "blueprint"
   | "signal"
   | "project"
-  | "social"
   | "terminal";
 
 const PARTICLES = Array.from({ length: 12 }, (_, index) => index);
@@ -82,7 +81,7 @@ export default function DisplayAtmosphere({ theme }: { theme: DisplayVisualTheme
     );
   }
 
-  if (theme === "signal" || theme === "social") {
+  if (theme === "signal") {
     return (
       <div className="jrnAtmosphere jrnAtmosphereSignal" aria-hidden="true">
         <span className="jrnRadar">

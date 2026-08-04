@@ -15,7 +15,7 @@ import {
   distanceToGraph,
   spineUToPoint,
 } from "@/lib/journey/graph";
-import { FOUNTAINS, SOCIAL_BOARDS, LIBRARY } from "@/lib/journey/settlement";
+import { FOUNTAINS, SQUARE_CLEARINGS, LIBRARY } from "@/lib/journey/settlement";
 import { STOPS } from "@/lib/journey/sections";
 import { KIOSK_PLACES } from "@/lib/journey/attractions";
 import { CURL_SHEET } from "@/lib/journey/config";
@@ -114,15 +114,15 @@ export default function StreetLamps() {
     // A post foot is bad when it stands in the village side-road lane (the van
     // would plough it), in ANOTHER lane of the network (shoulder offsets near a
     // junction land on the crossing road), on the pond (the bridge carries its
-    // own rail posts), on a fountain plaza (those get the FIXED pairs), against
-    // a social board on the Town Square, inside the library's footprint, or
+    // own rail posts), on a fountain plaza (those get the FIXED pairs), on a
+    // reserved clearing of the Town Square, inside the library's footprint, or
     // against a stop's set piece.
     const bad = (x: number, z: number) =>
       nearSideRoad(x, z, 0.9) ||
       distanceToGraph(x, z) < 2.4 ||
       insidePond(x, z, 0.8) ||
       FOUNTAINS.some((f) => Math.hypot(x - f.x, z - f.z) < 4.2) ||
-      SOCIAL_BOARDS.some((b) => Math.hypot(x - b.x, z - b.z) < 3.0) ||
+      SQUARE_CLEARINGS.some((b) => Math.hypot(x - b.x, z - b.z) < 3.0) ||
       (Math.abs(x - LIBRARY.x) < LIBRARY.hw + 1.2 &&
         z > LIBRARY.z - LIBRARY.front - 1.2 &&
         z < LIBRARY.z + LIBRARY.rear + 1.2) ||

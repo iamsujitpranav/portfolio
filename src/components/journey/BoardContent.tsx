@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import SocialTrail from "./SocialTrail";
 import SkillsCapabilityRing from "./SkillsCapabilityRing";
+import ExperienceCareerReel from "./ExperienceCareerReel";
 import { panelProject } from "@/lib/journey/projects";
 import { profile, metrics, experience, skillGroups } from "@content/resume";
 
@@ -25,22 +26,6 @@ export default function BoardContent({
   id: string;
   onMore: (label: string) => void;
 }) {
-  if (id === "social") {
-    return (
-      <div className="jrnSocialDirectory">
-        <div className="jrnSignalHero">
-          <span className="jrnSignalOrb" aria-hidden="true"><i /></span>
-          <div>
-            <div className="jrnEyebrow">Town Square · Social constellation</div>
-            <h2 className="jrnH">Every channel, one signal</h2>
-            <p className="jrnLead">Choose where you would like to connect.</p>
-          </div>
-        </div>
-        <SocialTrail embedded />
-      </div>
-    );
-  }
-
   const site = panelProject(id);
   if (site) {
     const job = experience.find((entry) => entry.company === site.company);
@@ -72,7 +57,7 @@ export default function BoardContent({
             {job.stack.slice(0, 8).map((stack: string) => <span key={stack}>{stack}</span>)}
           </div>
         ) : null}
-        <p className="jrnReads"><b>Exhibit notes</b>{site.reads}</p>
+        <p className="jrnReads">{site.reads}</p>
         <MoreButton label="See the full timeline" onMore={onMore} />
       </div>
     );
@@ -127,35 +112,12 @@ export default function BoardContent({
         <div className="jrnCareerCinema">
           <div className="jrnCareerIntro">
             <div>
-              <div className="jrnEyebrow">Experience · Career cinema</div>
+              <div className="jrnEyebrow">Experience · Career timeline</div>
               <h2 className="jrnH">A career told in shipped systems</h2>
             </div>
             <span><b>{experience.length}</b> career chapters</span>
           </div>
-          <div className="jrnJobs">
-            {experience.map((job, index) => (
-              <article key={job.company} className="jrnJob" style={customStyle("--scene-delay", `${index * 90}ms`)}>
-                <div className="jrnSceneNumber"><span>SCENE</span><b>{String(index + 1).padStart(2, "0")}</b></div>
-                <div className="jrnJobBody">
-                  <div className="jrnJobHead"><b>{job.role}</b><span>{job.period}</span></div>
-                  <div className="jrnJobCo">{job.company}</div>
-                  <p>{job.summary}</p>
-                  {job.projects?.length ? (
-                    <div className="jrnProjects">
-                      {job.projects.map((project) => (
-                        <div className="jrnProject" key={project.name}>
-                          <h5>{project.name}</h5><p>{project.summary}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="jrnChips">
-                    {job.stack.slice(0, 6).map((stack) => <span key={stack}>{stack}</span>)}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          <ExperienceCareerReel jobs={experience} />
           <MoreButton label="See the full timeline" onMore={onMore} />
         </div>
       );

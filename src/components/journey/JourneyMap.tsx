@@ -29,11 +29,11 @@ import { avatarPos } from "@/lib/journey/game";
 // run) — plus a live, pulsing you-are-here dot. The whole map fluidly grows
 // under the pointer, and hovering any marker pops a springy tooltip.
 //
-// Clicking TELEPORTS the avatar there (lib/journey/warp.ts) — the map is the
-// one place in this world that doesn't walk you, because a map you have to wait
-// ninety seconds to use is not doing its job. Stops and junctions land on their
-// node; every other marker lands on its own path anchor and hands its WORLD
-// POSITION along as the `look`, so the arrival shot ends framed on the thing
+// Clicking a marker moves the avatar there using the selected TRAVEL MODE —
+// teleport (lib/journey/warp.ts), walk, or run — picked in the left rail and
+// mirrored in every tooltip's verb. Stops and junctions land on their node;
+// every other marker lands on its own path anchor and hands its WORLD POSITION
+// along as the `look`, so a teleport's arrival shot ends framed on the thing
 // that was clicked rather than on the road it stands beside.
 
 // World→SVG: x maps straight across, z maps straight down (the trail walks
@@ -97,14 +97,21 @@ function clampMapCenter(
   };
 }
 
+/** How a click on a destination moves the avatar. */
+export type TravelMode = "walk" | "run" | "teleport";
+
 export default function JourneyMap({
   active,
   activeId,
+  mode,
   onPick,
   onPickAnchor,
 }: {
   active: boolean;
   activeId: string;
+  /** The selected travel mode — only changes the verbs in the hint/tooltips;
+   *  the click handlers behind onPick/onPickAnchor do the actual moving. */
+  mode: TravelMode;
   onPick: (id: string) => void;
   /** `look` is what the marker actually depicts, in world XZ — the building,
    *  the kiosk, the sheet of ice. Omitted for markers that sit on the road
@@ -113,6 +120,8 @@ export default function JourneyMap({
 }) {
   const [open, setOpen] = useState(true);
   const [tip, setTip] = useState<Tip | null>(null);
+  // The verb every tooltip promises — it must match what the click will do.
+  const go = mode === "teleport" ? "teleport" : mode;
   const dotRef = useRef<SVGCircleElement>(null);
   const ringRef = useRef<SVGCircleElement>(null);
   const dragRef = useRef<{
@@ -304,10 +313,10 @@ export default function JourneyMap({
           z: n!.z,
           sub:
             n!.id === "cross"
-              ? "Five roads meet at the square — click to teleport here"
-              : "Junction — click to teleport here",
+              ? `Five roads meet at the square — click to ${go} here`
+              : `Junction — click to ${go} here`,
         })),
-    [],
+    [go],
   );
   // Where a click on the library marker delivers you: the nearest road point
   // to its forecourt (the street's head in the Old Town).
@@ -327,7 +336,7 @@ export default function JourneyMap({
         x: KIOSK_PLACES[k].x,
         z: KIOSK_PLACES[k].z,
         title: a.label,
-        sub: "Mini-game kiosk — click to teleport in",
+        sub: `Mini-game kiosk — click to ${go} there`,
         anchor: a.anchor,
       };
     });
@@ -337,7 +346,7 @@ export default function JourneyMap({
       x: (CURL_SHEET.hackX + CURL_SHEET.buttonX) / 2,
       z: (CURL_SHEET.hackZ + CURL_SHEET.buttonZ) / 2,
       title: "Curling on the pond",
-      sub: "Frozen-pond game — click to teleport in",
+      sub: `Frozen-pond game — click to ${go} there`,
       anchor: att("curling")!.anchor,
     };
     const snowmen = TARGETS.map((t, i) => {
@@ -348,7 +357,7 @@ export default function JourneyMap({
         x: p.x,
         z: p.z,
         title: `Snowball target ${i + 1}/${TARGETS.length}`,
-        sub: "Click to teleport in, then pelt it",
+        sub: `Click to ${go} there, then pelt it`,
         anchor: p.anchor,
       };
     });
@@ -377,7 +386,7 @@ export default function JourneyMap({
       };
     });
     return [...kiosks, curling, ...snowmen, ...gems, ...obstacles];
-  }, []);
+  }, [go]);
 
   // Precomputed, downsampled polyline strings — built ONCE (deps []), not on
   // every render. Feeds the memoized layer below so a hover never regenerates
@@ -461,7 +470,7 @@ export default function JourneyMap({
               x: LIBRARY.x,
               z: LIBRARY.z,
               title: "Town Library",
-              sub: "The old square's civic hall — click to teleport in",
+              sub: `The old square's civic hall — click to ${go} there`,
             })
           }
           onMouseLeave={hide}
@@ -546,7 +555,7 @@ export default function JourneyMap({
             data-active={s.id === activeId ? "1" : undefined}
             onClick={() => onPick(s.id)}
             onMouseEnter={() =>
-              show({ x: s.x, z: s.z, title: s.label, sub: `${s.sub} — click to teleport here` })
+              show({ x: s.x, z: s.z, title: s.label, sub: `${s.sub} — click to ${go} here` })
             }
             onMouseLeave={hide}
           >
@@ -556,7 +565,7 @@ export default function JourneyMap({
         ))}
       </>
     ),
-    [edgePolys, games, pois, stops, activeId, libAnchor, show, hide, onPick, onPickAnchor],
+    [edgePolys, games, pois, stops, activeId, libAnchor, go, show, hide, onPick, onPickAnchor],
   );
 
   if (!active) return null;
@@ -576,7 +585,9 @@ export default function JourneyMap({
               it's about. Outside .jrnMapBody on purpose: the tooltip positions
               itself as a percentage of that box, so anything else living in
               there would shift every tooltip off its marker. */}
-          <p className="jrnMapHint">Drag in any direction · Click a marker to teleport</p>
+          <p className="jrnMapHint">
+            Drag in any direction · Click a marker to {go === "teleport" ? "teleport" : `${go} there`}
+          </p>
           <div className="jrnMapBody">
             <svg
               viewBox={`${view.x} ${view.z} ${view.w} ${view.h}`}

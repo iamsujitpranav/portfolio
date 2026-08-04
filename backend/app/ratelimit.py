@@ -168,8 +168,9 @@ class RateLimiter:
 chat_limiter = RateLimiter("chat", parse_rules(config.CHAT_RATE_LIMIT))
 contact_limiter = RateLimiter("contact", parse_rules(config.CONTACT_RATE_LIMIT))
 login_limiter = RateLimiter("admin-login", parse_rules(config.LOGIN_RATE_LIMIT))
+events_limiter = RateLimiter("events", parse_rules(config.EVENTS_RATE_LIMIT))
 
-ALL_LIMITERS = (chat_limiter, contact_limiter, login_limiter)
+ALL_LIMITERS = (chat_limiter, contact_limiter, login_limiter, events_limiter)
 
 
 def limit(limiter: RateLimiter) -> Callable[[Request], None]:

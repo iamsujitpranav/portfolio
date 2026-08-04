@@ -200,6 +200,7 @@ export default function MatrixSignFace({
   active?: boolean;
   titleFontSize?: number;
 }) {
+  const [reveal, setReveal] = useState(false);
   const [surface] = useState(() => {
     if (typeof document === "undefined") return null;
     const canvas = document.createElement("canvas");
@@ -213,18 +214,18 @@ export default function MatrixSignFace({
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.anisotropy = 16;
-    drawSign(context, canvas, title, subtitle, action, system, 0, 0, active, titleFontSize);
+    drawSign(context, canvas, title, subtitle, action, system, reveal ? 0 : REVEAL_SECONDS, 0, active, titleFontSize);
     texture.needsUpdate = true;
     return { canvas, context, texture };
   });
-  const animation = useRef({ elapsed: 0, accumulator: 0, tick: 0, complete: false });
+  const animation = useRef({ elapsed: REVEAL_SECONDS, accumulator: 0, tick: 0, complete: true });
 
   useEffect(() => {
     if (!surface) return;
-    animation.current = { elapsed: 0, accumulator: 0, tick: 0, complete: false };
-    drawSign(surface.context, surface.canvas, title, subtitle, action, system, 0, 0, active, titleFontSize);
+    animation.current = { elapsed: reveal ? 0 : REVEAL_SECONDS, accumulator: 0, tick: 0, complete: !reveal };
+    drawSign(surface.context, surface.canvas, title, subtitle, action, system, animation.current.elapsed, 0, active, titleFontSize);
     surface.texture.needsUpdate = true;
-  }, [active, action, subtitle, surface, system, title, titleFontSize]);
+  }, [active, action, reveal, subtitle, surface, system, title, titleFontSize]);
 
   useFrame((_, delta) => {
     if (!surface || animation.current.complete) return;
@@ -246,7 +247,7 @@ export default function MatrixSignFace({
     // Billboarded signs can be viewed from angles where a centred support
     // post reaches slightly past the board's shallow box. Keep the emissive
     // face far enough forward that the pole always remains behind the text.
-    <mesh position={[0, 0, 0.12]} renderOrder={2}>
+    <mesh position={[0, 0, 0.12]} renderOrder={2} onClick={() => setReveal(true)}>
       <planeGeometry args={[width * 0.96, height * 0.9]} />
       <meshBasicMaterial
         map={surface.texture}

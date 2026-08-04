@@ -42,7 +42,6 @@ import Avatar, { AVATAR_LIGHT_LAYER, type Nav } from "./Avatar";
 import CameraRig, { type DisplayFocus } from "./CameraRig";
 import TeleportRing from "./TeleportRing";
 import TownSquare from "./TownSquare";
-import SocialSignposts from "./SocialSignposts";
 import { buildWalkCurve, buildEdgeCurves } from "@/lib/journey/curve";
 import { FOG_COLOR, FOG_DENSITY } from "@/lib/journey/config";
 import { sunState } from "@/lib/journey/daynight";
@@ -177,7 +176,7 @@ export default function Scene({
   avatarReady,
   openingShot,
   onOpeningEnd: _onOpeningEnd,
-  displayFocus: _displayFocus,
+  displayFocus,
   onDisplay,
 }: {
   nav: Nav;
@@ -233,7 +232,6 @@ export default function Scene({
       <Dioramas />
       <Fountains />
       <TownSquare />
-      <SocialSignposts onOpen={onDisplay} />
       {/* The project landmarks: each real piece of work, built as a structure
           beside the road that leads to the stop it belongs to. */}
       <Landmarks showPlaques={!openingShot} onPick={(_, focus) => onDisplay(focus)} />
@@ -282,6 +280,7 @@ export default function Scene({
       <CameraRig
         edgeCurves={edgeCurves}
         nav={nav}
+        displayFocus={displayFocus}
       />
       <AvatarFillLight />
 

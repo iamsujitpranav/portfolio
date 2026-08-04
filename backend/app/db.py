@@ -1,8 +1,10 @@
 """PostgreSQL layer (SQLAlchemy 2.0 async + pgvector).
 
-Every database in this project is PostgreSQL. Two tables:
-  - leads:      persisted contact-form submissions
-  - documents:  résumé/article chunks with a pgvector embedding for RAG
+Every database in this project is PostgreSQL. The tables:
+  - leads:           persisted contact-form submissions
+  - documents:       résumé/article chunks with a pgvector embedding for RAG
+  - articles:        blog posts
+  - journey_events:  first-party 3D-journey telemetry (no IP, no cookie)
 
 If DATABASE_URL is unset, the whole layer is inert and callers fall back
 (contact => email only, chat => full-context injection).
@@ -12,7 +14,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Text, Integer, DateTime, Boolean, ARRAY, func
+from sqlalchemy import String, Text, Integer, Float, DateTime, Boolean, ARRAY, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
@@ -66,6 +69,31 @@ class Article(Base):
     )
 
 
+class JourneyEvent(Base):
+    """One thing a visitor did in the 3D journey.
+
+    Deliberately anonymous: `session_id` is a random value the browser minted
+    for one tab and forgot on close, and NOTHING here identifies a person — no
+    IP (unlike `leads`, which needs one for abuse triage), no user agent, no
+    cookie. The point is "which stops get opened and where do people stop
+    walking", which needs none of that.
+    """
+
+    __tablename__ = "journey_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(64), index=True)
+    # Seconds since the session's first event — the shape of a visit without a
+    # clock that could be correlated against anything else.
+    offset_s: Mapped[float] = mapped_column(Float, default=0.0)
+    props: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Indexed because the admin dashboard only ever reads a trailing window.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 # Lazily-created engine/session so the module imports cleanly without a DB.
 _engine = None
 _Session: Optional[async_sessionmaker[AsyncSession]] = None
@@ -91,3 +119,13 @@ async def init_db() -> None:
     async with _engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
+        # create_all skips tables that already exist, indexes included — so an
+        # index added to a model after its table shipped needs saying twice.
+        # The name matches SQLAlchemy's own convention, so the two can't
+        # duplicate each other on a fresh database.
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_journey_events_created_at "
+                "ON journey_events (created_at)"
+            )
+        )

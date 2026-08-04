@@ -484,7 +484,7 @@ function SignalStation() {
               max={0.8}
               additive
               always
-            />
+          />
           </group>
         );
       })}
@@ -573,6 +573,7 @@ function Plaque({
   fx,
   fz,
   onPick,
+  visible = true,
 }: {
   title: string;
   project: string;
@@ -581,6 +582,7 @@ function Plaque({
   fx: number;
   fz: number;
   onPick: (panelId: string, focus: DisplayFocus) => void;
+  visible?: boolean;
 }) {
   const near = useRef(false);
   const [isNear, setIsNear] = useState(false);
@@ -613,7 +615,7 @@ function Plaque({
   });
 
   return (
-    <group ref={group} position={[0, 0, z]}>
+    <group ref={group} position={[0, 0, z]} visible={visible}>
       <mesh position={[0, 0.85, 0]} castShadow frustumCulled={false}>
         <boxGeometry args={[0.12, 1.7, 0.12]} />
         <meshStandardMaterial color={TIMBER_DK} roughness={1} flatShading />
@@ -685,17 +687,16 @@ export default function Landmarks({
           {s.structure && <Structure kind={s.structure} />}
           {/* The Reading Room hangs on the library, which is already standing —
               its site IS the plaque spot, so the board sits at the origin. */}
-          {showPlaques && (
-            <Plaque
-              title={s.title}
-              project={s.project}
-              panelId={projectPanelId(s.id)}
-              z={s.structure ? s.clearR * 0.62 : 0}
-              fx={s.fx}
-              fz={s.fz}
-              onPick={onPick}
+          <Plaque
+            visible={showPlaques}
+            title={s.title}
+            project={s.project}
+            panelId={projectPanelId(s.id)}
+            z={s.plaqueZ ?? (s.structure ? s.clearR * 0.62 : 0)}
+            fx={s.fx}
+            fz={s.fz}
+            onPick={onPick}
             />
-          )}
         </group>
       ))}
     </group>

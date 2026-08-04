@@ -13,10 +13,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from starlette.concurrency import run_in_threadpool
 
-from . import config, rag, ratelimit, resume_context
+from . import config, guard, rag, ratelimit, resume_context
 from .admin import router as admin_router
+from .analytics import router as analytics_router
 from .articles import router as articles_router
-from .db import Lead, get_sessionmaker, init_db
+from .db import JourneyEvent, Lead, get_sessionmaker, init_db
 
 
 @contextlib.asynccontextmanager
@@ -38,6 +39,7 @@ app.add_middleware(
 
 app.include_router(articles_router)
 app.include_router(admin_router)
+app.include_router(analytics_router)
 
 
 # --------------------------------------------------------------------------- #
@@ -52,8 +54,14 @@ async def health():
         "rag": config.RAG_ENABLED,
         "smtp": config.SMTP_ENABLED,
         "admin": config.ADMIN_ENABLED,
+        "analytics": config.ANALYTICS_ENABLED,
         "rate_limit": config.RATE_LIMIT_ENABLED,
         "model": config.ANTHROPIC_MODEL,
+        # Cost controls, so a deploy can be checked without reading the env.
+        "chat_guard": config.CHAT_GUARD_ENABLED,
+        "chat_cache": config.CHAT_CACHE_ENABLED,
+        "prompt_cache": config.CHAT_PROMPT_CACHE,
+        "max_tokens": config.CHAT_MAX_TOKENS,
     }
 
 
@@ -99,8 +107,45 @@ def _system_prompt(context: str) -> str:
     )
 
 
+def _canned(text: str, source: str, *, chunk: int = 24) -> StreamingResponse:
+    """Answer without calling the model, in the shape the browser already reads.
+
+    The frontend consumes a plain-text stream and renders it as it arrives, so a
+    guard refusal and a cache hit go back the same way rather than as a distinct
+    error shape the client would need teaching about. Chunked, but with no
+    artificial delay — a fake typing effect would be latency invented on purpose.
+    """
+
+    async def gen():
+        for i in range(0, len(text), chunk):
+            yield text[i : i + chunk]
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Chat-Source": source},
+    )
+
+
 @app.post("/api/chat", dependencies=[Depends(ratelimit.limit(ratelimit.chat_limiter))])
 async def chat(req: ChatRequest):
+    last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+    # Only the opening turn is cacheable: after that the answer depends on the
+    # conversation, and two visitors who typed the same words are no longer
+    # asking the same thing.
+    first_turn = len(req.messages) == 1
+
+    # Cheapest path first — both of these answer without a key, a context or a
+    # token, so they run ahead of the configuration check.
+    verdict = guard.screen(last_user)
+    if not verdict.ok:
+        return _canned(verdict.reply, f"guard:{verdict.reason}")
+
+    if first_turn:
+        cached = guard.ANSWER_CACHE.get(last_user)
+        if cached is not None:
+            return _canned(cached, "cache")
+
     if not config.ANTHROPIC_API_KEY:
         return JSONResponse(
             {"error": "chat_unconfigured", "detail": "ANTHROPIC_API_KEY is not set."},
@@ -108,9 +153,13 @@ async def chat(req: ChatRequest):
         )
 
     # Retrieve grounding context from the latest user message.
-    last_user = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
     context = await rag.retrieve_context(last_user)
-    system = _system_prompt(context)
+    # A list of blocks rather than a bare string so the whole thing — instructions
+    # and résumé — can be marked cacheable. With RAG off this block is identical
+    # on every request, which is exactly the case prompt caching is for.
+    system: list[dict] = [{"type": "text", "text": _system_prompt(context)}]
+    if config.CHAT_PROMPT_CACHE:
+        system[0]["cache_control"] = {"type": "ephemeral"}
     anthropic_messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
     from anthropic import AsyncAnthropic
@@ -118,16 +167,27 @@ async def chat(req: ChatRequest):
     client = AsyncAnthropic(api_key=config.ANTHROPIC_API_KEY)
 
     async def token_stream():
+        parts: list[str] = []
         async with client.messages.stream(
             model=config.ANTHROPIC_MODEL,
-            max_tokens=1024,
+            max_tokens=config.CHAT_MAX_TOKENS,
             system=system,
             messages=anthropic_messages,
         ) as stream:
             async for text in stream.text_stream:
+                parts.append(text)
                 yield text
+        # Only a cleanly finished answer is stored. A visitor who closes the tab
+        # mid-stream raises out of the generator before this line, so a truncated
+        # answer can never be served to the next person who asks.
+        if first_turn:
+            guard.ANSWER_CACHE.put(last_user, "".join(parts))
 
-    return StreamingResponse(token_stream(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(
+        token_stream(),
+        media_type="text/plain; charset=utf-8",
+        headers={"X-Chat-Source": "model"},
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -193,3 +253,84 @@ async def contact(data: ContactRequest, request: Request):
 
     # In early dev nothing may be configured — accept so the UI works, but say so.
     return {"ok": True, "persisted": persisted, "emailed": emailed}
+
+
+# --------------------------------------------------------------------------- #
+# Journey analytics — first-party, anonymous, batched
+# --------------------------------------------------------------------------- #
+# What gets stored is described on db.JourneyEvent: a random per-tab session id,
+# an event name, a time offset and a small bag of scalars. No IP, no cookie, no
+# user agent. The frontend honours Do-Not-Track before a request is ever made;
+# this endpoint is the second half of that promise, and stores nothing that
+# could re-identify a visitor even if the table leaked.
+Scalar = str | int | float | bool
+
+
+class JourneyEventIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    # Milliseconds since the session's first event, per the client.
+    t: float = Field(default=0.0, ge=0, le=86_400_000)
+    props: dict[str, Scalar] | None = None
+
+    @field_validator("props")
+    @classmethod
+    def _bound_props(cls, v: dict[str, Scalar] | None) -> dict[str, Scalar] | None:
+        if not v:
+            return None
+        if len(v) > 12:
+            raise ValueError("too many event properties")
+        out: dict[str, Scalar] = {}
+        for key, value in v.items():
+            out[key[:32]] = value[:200] if isinstance(value, str) else value
+        return out
+
+
+class EventBatch(BaseModel):
+    sid: str = Field(min_length=1, max_length=64)
+    events: list[JourneyEventIn] = Field(min_length=1, max_length=config.EVENTS_MAX_PER_BATCH)
+
+
+def _scrub(event: JourneyEventIn) -> dict[str, Scalar] | None:
+    """Drop free text at the door unless it was explicitly opted into.
+
+    The browser always sends the question it asked the assistant, so turning
+    ANALYTICS_QUESTIONS on takes effect immediately with no frontend rebuild.
+    Off (the default) it is discarded HERE — never written, never logged."""
+    props = event.props
+    if not props or config.ANALYTICS_QUESTIONS:
+        return props
+    return {k: v for k, v in props.items() if k != "q"} or None
+
+
+@app.post("/api/events", dependencies=[Depends(ratelimit.limit(ratelimit.events_limiter))])
+async def events(batch: EventBatch):
+    """Accept a batch of journey events. Always 200: a visitor's experience must
+    never depend on telemetry landing, and the browser beacons this on pagehide
+    where a retry is impossible anyway."""
+    if not config.ANALYTICS_ENABLED:
+        return {"ok": True, "stored": 0}
+
+    sm = get_sessionmaker()
+    if sm is None:
+        return {"ok": True, "stored": 0}
+
+    try:
+        async with sm() as session:
+            session.add_all(
+                [
+                    JourneyEvent(
+                        session_id=batch.sid,
+                        name=e.name,
+                        offset_s=round(e.t / 1000.0, 2),
+                        props=_scrub(e),
+                    )
+                    for e in batch.events
+                ]
+            )
+            await session.commit()
+    except Exception:
+        # A telemetry write is never worth a 5xx on a page the visitor is
+        # actively leaving.
+        return {"ok": True, "stored": 0}
+
+    return {"ok": True, "stored": len(batch.events)}

@@ -19,6 +19,9 @@ const GROUND_CLEARANCE = 1.2;
 const ARCHITECT_MIN_DISTANCE = 6.5;
 const ARCHITECT_MAX_DISTANCE = 10;
 const ARRIVAL_BOARD_DISTANCE = 4.5;
+// Pixels a pressed pointer must travel before it reads as an orbit drag rather
+// than a click (mirrors the trail map's DRAG_SLOP).
+const ORBIT_DRAG_SLOP = 5;
 
 // Close third-person framing. The camera rides just behind and slightly off the
 // runner's shoulder at head height, so the avatar fills the frame and its face
@@ -37,9 +40,11 @@ const LOOK_Y = 1.45; // aim point: head/upper chest rather than the belt
 export default function CameraRig({
   edgeCurves,
   nav,
+  displayFocus,
 }: {
   edgeCurves: Map<string, THREE.CatmullRomCurve3>;
   nav: Nav;
+  displayFocus: DisplayFocus | null;
 }) {
   const { camera, gl } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,8 +56,21 @@ export default function CameraRig({
   const seenWarp = useRef(warp.seq);
   const lockedTarget = useMemo(() => new THREE.Vector3(), []);
   const lockedPosition = useMemo(() => new THREE.Vector3(), []);
+  // The shot that was on screen when a display focus opened, restored verbatim
+  // when it closes — reading a card must not permanently move the camera.
+  const savedPosition = useMemo(() => new THREE.Vector3(), []);
+  const savedTarget = useMemo(() => new THREE.Vector3(), []);
+  const savedLock = useRef(false);
+  const savedArchitect = useRef(false);
   const pointerOrbit = useRef(false);
   const lockTarget = useRef(false);
+  const displayLock = useRef(false);
+  // The idle wheel-zoom slide below moves the camera along world +Z, which is
+  // only meaningful for the architect board (its face points +Z). A teleport
+  // arrival locks at an arbitrary bearing — sliding that pose along z would
+  // swing the camera around the landmark and lose the avatar entirely.
+  const architectLock = useRef(false);
+  const seenDisplay = useRef<string | null>(null);
   const architectBoard = useMemo(() => {
     const node = nodeById("cross");
     const [dx, dz] = STOP_SIGN_OFFSETS.start;
@@ -62,15 +80,44 @@ export default function CameraRig({
   }, []);
 
   useEffect(() => {
-    const beginPointerOrbit = () => { pointerOrbit.current = true; };
-    const endPointerOrbit = () => { pointerOrbit.current = false; };
+    // A locked composition is only handed over on a real orbit GESTURE — the
+    // pointer has to travel past a slop before it counts. A bare click (open a
+    // plaque, dismiss a card) must leave the shot exactly where it is.
+    let downX = 0;
+    let downY = 0;
+    let pointerDown = false;
+    const beginPointerOrbit = (e: PointerEvent) => {
+      pointerDown = true;
+      downX = e.clientX;
+      downY = e.clientY;
+    };
+    const movePointerOrbit = (e: PointerEvent) => {
+      if (!pointerDown || pointerOrbit.current) return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) >= ORBIT_DRAG_SLOP)
+        pointerOrbit.current = true;
+    };
+    const endPointerOrbit = () => {
+      pointerDown = false;
+      pointerOrbit.current = false;
+    };
+    // Wheel on a locked arrival hands the camera back, like a drag does. The
+    // architect board is the exception: its wheel zoom keeps the authored
+    // composition and only changes depth (handled in the frame loop).
+    const wheelZoom = () => {
+      if (lockTarget.current && !displayLock.current && !architectLock.current)
+        lockTarget.current = false;
+    };
     gl.domElement.addEventListener("pointerdown", beginPointerOrbit);
+    gl.domElement.addEventListener("pointermove", movePointerOrbit);
     gl.domElement.addEventListener("pointerup", endPointerOrbit);
     gl.domElement.addEventListener("pointercancel", endPointerOrbit);
+    gl.domElement.addEventListener("wheel", wheelZoom, { passive: true });
     return () => {
       gl.domElement.removeEventListener("pointerdown", beginPointerOrbit);
+      gl.domElement.removeEventListener("pointermove", movePointerOrbit);
       gl.domElement.removeEventListener("pointerup", endPointerOrbit);
       gl.domElement.removeEventListener("pointercancel", endPointerOrbit);
+      gl.domElement.removeEventListener("wheel", wheelZoom);
     };
   }, [gl]);
 
@@ -83,6 +130,55 @@ export default function CameraRig({
     desired.set(p.x, p.y + LOOK_Y, p.z); // aim at the head, not the belt
     const ctrl = controls.current;
     if (!ctrl) return;
+
+    const displayId = displayFocus?.id ?? null;
+    if (displayId !== seenDisplay.current) {
+      const hadFocus = seenDisplay.current !== null;
+      seenDisplay.current = displayId;
+      displayLock.current = !!displayFocus;
+      if (displayFocus) {
+        // Remember the shot being interrupted — but only on the FIRST open, so
+        // hopping straight between plaques still restores the original view.
+        if (!hadFocus) {
+          savedPosition.copy(camera.position);
+          savedTarget.copy(ctrl.target);
+          savedLock.current = lockTarget.current;
+          savedArchitect.current = architectLock.current;
+        }
+        // Project plaques open directly from the world rather than through the
+        // Trail arrival shot. Recreate the same behind-the-avatar framing here.
+        const tan = ec.getTangentAt(tt);
+        fwd.set(tan.x * nav.dir, 0, tan.z * nav.dir);
+        if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1);
+        fwd.normalize();
+        const dist = THREE.MathUtils.clamp(
+          camera.position.distanceTo(ctrl.target),
+          CHASE_NEAR,
+          CHASE_FAR,
+        );
+        lockedPosition.set(
+          p.x - fwd.x * dist + fwd.z * SHOULDER,
+          p.y + EYE_Y + dist * 0.12,
+          p.z - fwd.z * dist - fwd.x * SHOULDER,
+        );
+        lockedTarget.copy(desired);
+        ctrl.target.copy(lockedTarget);
+        lockTarget.current = true;
+        architectLock.current = false;
+      } else {
+        // Closing the card puts the camera back exactly where it was when the
+        // card opened, lock state included, instead of stranding it in the
+        // card's framing.
+        camera.position.copy(savedPosition);
+        ctrl.target.copy(savedTarget);
+        lockedPosition.copy(savedPosition);
+        lockedTarget.copy(savedTarget);
+        lockTarget.current = savedLock.current;
+        architectLock.current = savedArchitect.current;
+        ctrl.update();
+        camera.lookAt(ctrl.target);
+      }
+    }
 
     if (!init.current) {
       // OPENING SHOT: face The Architect board squarely from its front. The
@@ -97,6 +193,7 @@ export default function CameraRig({
       ctrl.update();
       camera.lookAt(lockedTarget);
       lockTarget.current = true;
+      architectLock.current = true;
       init.current = true;
       return;
     }
@@ -104,6 +201,7 @@ export default function CameraRig({
     if (seenWarp.current !== warp.seq) {
       seenWarp.current = warp.seq;
       if (warp.pose === "architect") {
+        displayLock.current = false;
         camera.position.set(architectBoard.x, architectBoard.y, architectBoard.z + 8);
         lockedPosition.copy(camera.position);
         lockedTarget.copy(architectBoard);
@@ -111,10 +209,12 @@ export default function CameraRig({
         ctrl.update();
         camera.lookAt(lockedTarget);
         lockTarget.current = true;
+        architectLock.current = true;
         init.current = true;
         return;
       }
 
+      displayLock.current = false;
       const warpCurve = edgeCurves.get(warp.destEdgeId) ?? ec;
       const warpPoint = warpCurve.getPointAt(THREE.MathUtils.clamp(warp.destTAB, 0, 1));
       fwd.set(warp.lookX - warpPoint.x, 0, warp.lookZ - warpPoint.z);
@@ -137,6 +237,7 @@ export default function CameraRig({
       ctrl.target.copy(lockedTarget);
       camera.lookAt(lockedTarget);
       lockTarget.current = true;
+      architectLock.current = false;
       init.current = true;
       ctrl.update();
       camera.lookAt(lockedTarget);
@@ -180,14 +281,24 @@ export default function CameraRig({
         // orbit. Only a real pointer gesture releases the composition; wheel
         // zoom keeps the board centered. Preserve its depth but restore the
         // authored x/y pose before OrbitControls updates again.
-        if (pointerOrbit.current) {
+        if (displayLock.current) {
+          ctrl.target.copy(lockedTarget);
+          camera.position.copy(lockedPosition);
+        } else if (pointerOrbit.current) {
           lockTarget.current = false;
-        } else {
+        } else if (architectLock.current) {
           lockedPosition.z = lockedTarget.z + THREE.MathUtils.clamp(
             camera.position.z - lockedTarget.z,
             ARCHITECT_MIN_DISTANCE,
             ARCHITECT_MAX_DISTANCE,
           );
+          ctrl.target.copy(lockedTarget);
+          camera.position.copy(lockedPosition);
+        } else {
+          // A teleport arrival at an arbitrary bearing: hold the authored
+          // behind-the-avatar pose exactly. The z-slide above assumes a
+          // +Z-facing composition and would swing this one around the
+          // landmark. Wheel zoom releases the lock via the listener instead.
           ctrl.target.copy(lockedTarget);
           camera.position.copy(lockedPosition);
         }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pushToast, celebrate } from "@/lib/journey/game";
+import { markGame } from "@/lib/journey/passport";
+import { track } from "@/lib/journey/analytics";
 
 // A rest-stop diversion: tic-tac-toe against the résumé's "AI". The opponent
 // plays minimax (so it never loses to a careless move) but blunders a small
@@ -116,6 +118,10 @@ export default function TicTacToe({ onClose }: { onClose: () => void }) {
     } else {
       pushToast("The AI takes it. Try again?", "board");
     }
+    // A draw against a perfect minimax is the best an optimal player can do, so
+    // it earns the stamp too; only a loss leaves the kiosk merely "played".
+    markGame("tictactoe", result === "O" ? "played" : "won");
+    track("game_result", { game: "tictactoe", result });
   }, [result]);
 
   const status =

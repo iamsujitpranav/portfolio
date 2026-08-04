@@ -9,11 +9,11 @@ import TicTacToe from "./TicTacToe";
 import MemoryMatch from "./MemoryMatch";
 
 // The mini-game HUD (pure DOM, over the canvas). It owns nothing itself — it
-// polls the shared `game` singleton once per frame and mirrors the bits people
-// need to see: the résumé secrets uncovered so far, and the transient toasts the
-// 3D layer emits. (There is no score — the games are flavour, not a contest.) It
-// also binds the keyboard controls, lists what there is to play (and walks you
-// to it), and mounts whichever kiosk game `game.modal` opens.
+// polls the shared `game` singleton once per frame and mirrors the transient
+// toasts the 3D layer emits. (There is no score — the games are flavour, not a
+// contest; lifetime progress is the Trail Passport's job, top-centre.) It also
+// binds the keyboard controls, lists what there is to play (and walks you to
+// it), and mounts whichever kiosk game `game.modal` opens.
 
 const TOAST_MS = 3200;
 // The route-cursor position is quantised to ~0.5 % of an edge before it hits
@@ -22,11 +22,8 @@ const TOAST_MS = 3200;
 const T_STEP = 0.005;
 
 type Snapshot = {
-  secretsFound: number;
-  secretsTotal: number;
   toasts: Toast[];
   modal: ModalGame | null;
-  sprint: boolean;
   edgeId: string;
   tAB: number;
 };
@@ -48,11 +45,8 @@ export default function GameHud({
   panelOpen?: boolean;
 }) {
   const [snap, setSnap] = useState<Snapshot>({
-    secretsFound: 0,
-    secretsTotal: 0,
     toasts: [],
     modal: null,
-    sprint: false,
     edgeId: "",
     tAB: 0,
   });
@@ -63,18 +57,15 @@ export default function GameHud({
   // Last values we pushed to state — the poll diffs against this ref so it
   // re-renders exactly when something visible changes (and never churns).
   const last = useRef({
-    secretsFound: -1,
-    secretsTotal: -1,
     toastKey: "",
     modal: null as ModalGame | null,
-    sprint: false,
     edgeId: "",
     tq: -1,
   });
 
   // Mark the journey live for the game systems, and bind the two keys: Space to
-  // hop, Shift (held) to accelerate. Sprint is also a HUD toggle below, so it
-  // works without a keyboard.
+  // hop, Shift (held) to accelerate. Sprint is keyboard-only now — the HUD
+  // toggle it used to share the corner with is gone.
   useEffect(() => {
     if (!active) return;
     game.active = true;
@@ -110,39 +101,36 @@ export default function GameHud({
   }, [active]);
 
   // Poll the shared state once per frame on a single stable loop. Re-render only
-  // when a visible value actually changes — secrets, the open kiosk game, or the
-  // set of live (un-expired) toasts.
+  // when a visible value actually changes — the open kiosk game, the route
+  // cursor, or the set of live (un-expired) toasts.
   useEffect(() => {
     if (!active) return;
     let raf = 0;
+    let firstTick = true;
     const tick = () => {
       const nowT = typeof performance !== "undefined" ? performance.now() : 0;
+      // This HUD can mount SECONDS after the code that pushed a toast — the
+      // first frame of a cold scene is expensive, so `onReady` and the mount
+      // that follows it are not the same moment. Anything queued before this
+      // loop existed would otherwise arrive already expired and never be shown
+      // at all, so it gets its full dwell measured from the first frame that
+      // could actually draw it.
+      if (firstTick) {
+        firstTick = false;
+        for (const t of game.toasts) t.born = nowT;
+      }
       const fresh = game.toasts.filter((t) => nowT - t.born < TOAST_MS);
       const toastKey = fresh.map((t) => t.id).join(",");
       const tq = Math.round(nav.tAB / T_STEP);
       const l = last.current;
-      if (
-        game.secretsFound !== l.secretsFound ||
-        game.secretsTotal !== l.secretsTotal ||
-        game.modal !== l.modal ||
-        game.sprint !== l.sprint ||
-        nav.edgeId !== l.edgeId ||
-        tq !== l.tq ||
-        toastKey !== l.toastKey
-      ) {
-        l.secretsFound = game.secretsFound;
-        l.secretsTotal = game.secretsTotal;
+      if (game.modal !== l.modal || nav.edgeId !== l.edgeId || tq !== l.tq || toastKey !== l.toastKey) {
         l.modal = game.modal;
-        l.sprint = game.sprint;
         l.edgeId = nav.edgeId;
         l.tq = tq;
         l.toastKey = toastKey;
         setSnap({
-          secretsFound: game.secretsFound,
-          secretsTotal: game.secretsTotal,
           toasts: fresh,
           modal: game.modal,
-          sprint: game.sprint,
           edgeId: nav.edgeId,
           tAB: tq * T_STEP,
         });
@@ -173,16 +161,9 @@ export default function GameHud({
 
   return (
     <>
-      {/* The one thing worth counting: résumé facts uncovered by walking the
-          trail. Top-center, out of the way of the side menu. */}
-      {snap.secretsTotal > 0 && (
-        <div className="jrnScore">
-          <div className="jrnSecrets" title="Hidden résumé facts found along the trail">
-            ✦ {snap.secretsFound}/{snap.secretsTotal}
-            <span>résumé facts found</span>
-          </div>
-        </div>
-      )}
+      {/* The secrets counter used to live here, top-centre. It is now one line
+          of the Trail Passport (Passport.tsx), which owns that slot and counts
+          everything a visit is made of rather than gems alone. */}
 
       {/* Toast feed — secrets found, moves landed, board results. */}
       <div className="jrnToasts">
@@ -193,19 +174,10 @@ export default function GameHud({
         ))}
       </div>
 
-      {/* Accelerator — the trail is a ~2.5 min walk at base pace, and not
-          everyone wants to stroll it. Hold Shift to jog, or latch it here.
-          Hidden behind an open résumé panel: it shares that column. */}
-      {!panelOpen && (
-        <button
-          className="jrnSprint"
-          data-on={snap.sprint ? "1" : undefined}
-          onClick={() => setSprint(!game.sprint)}
-          title="Break into a jog (or hold Shift)"
-        >
-          {snap.sprint ? "▶▶ jog" : "▶ walk"}
-        </button>
-      )}
+      {/* The accelerator used to have a "▶ walk / ▶▶ jog" toggle here, bottom
+          right. It was a control for something the visitor was already doing,
+          parked in the busiest corner of the HUD — Shift (held) does the same
+          thing and is in the controls hint below. */}
 
       {/* What there is to play, and how to get to it. The games all live at
           fixed points on a 334 m trail, so "Go" runs the avatar there and stops;
@@ -276,7 +248,7 @@ export default function GameHud({
       {/* One-time controls hint. */}
       {!hintGone && (
         <div className="jrnControls">
-          <b>WASD / Arrow keys</b> to walk · <b>drag</b> to look around · <b>click markers</b> to teleport · <b>Space</b> to vault · <b>Shift</b> to jog
+          <b>WASD / Arrow keys</b> to walk · <b>drag</b> to look around · <b>click markers</b> to teleport · <b>Space</b> to vault · <b>Shift</b> to jog · <b>/</b> to ask my résumé
         </div>
       )}
 
