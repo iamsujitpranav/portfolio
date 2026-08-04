@@ -6,8 +6,8 @@
     "yearsAI": 3,
     "location": "Hyderabad, India",
     "email": "sujitreddy0602@gmail.com",
-    "linkedin": "https://www.linkedin.com/in/sujitpranav/",
-    "github": "https://github.com/iamsujitpranav/",
+    "linkedin": "https://www.linkedin.com/in/sujitpranav",
+    "github": "https://github.com/iamsujitpranav",
     "phone": "+91 91337 95317",
     "summary": "Engineering Head with 12+ years building scalable SaaS platforms, modernizing large-scale monoliths, integrating microservices, and engineering high-availability systems. Ruby on Rails developer with 3+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP). Track record leading architecture, sprint planning, code review, and mentoring across cross-functional teams, with DevOps delivery on AWS, Docker, Kubernetes, and CI/CD pipelines.",
     "openTo": "Engineering leadership & AI-platform roles (remote-friendly).",
@@ -64,21 +64,21 @@
           "summary": "A multi-brand agentic content platform on Claude - Scout, Strategist, Writer, Guardian, Repurposer, and Publisher stages with structured JSON outputs, risk tiering, human approval gates, encrypted credentials, idempotent scheduled runs, and a global kill switch."
         }
       ],
-      "stack": ["FastAPI", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]
+      "stack": ["Python", "FastAPI", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]
     },
     {
       "role": "Lead Architect",
       "company": "Aequor Information Technologies / Virtusa",
       "period": "Nov 2024 - Apr 2025",
       "summary": "Led development on Storable Edge, an all-in-one self-storage operations platform. Drove sprint planning, effort estimation, and roadmap alignment; performed code reviews, pair programming, and mentoring. Contributed to microservice integrations, API design, and performance tuning; used Claude MCP for agentic development and improved deployments with Docker, GitHub Actions, and Jenkins.",
-      "stack": ["Rails 7", "Ruby 3.2", "GraphQL", "Sidekiq", "AWS", "Docker", "Grafana"]
+      "stack": ["Rails 7", "Python", "Ruby 3.2", "GraphQL", "Sidekiq", "AWS", "Docker", "Grafana"]
     },
     {
       "role": "Senior Architect",
       "company": "Emami Frankross",
       "period": "Apr 2023 - May 2024",
       "summary": "Led backend modernization of a large-scale e-commerce monolith powering thousands of daily transactions. Built a DevOps stack (AWS + Docker + GitHub Actions), raised release velocity 2x, and cut incident response >40% with Grafana + New Relic. Designed a PyTorch + FastAPI recommendation engine on user/product embeddings, integrated with the Rails platform, and improved search relevance with Algolia.",
-      "stack": ["Rails 6.1", "PyTorch", "FastAPI", "Kubernetes", "Algolia", "New Relic"]
+      "stack": ["Rails 6.1", "Python", "PyTorch", "FastAPI", "Kubernetes", "Algolia", "New Relic"]
     },
     {
       "role": "Senior Software Engineer",
@@ -138,12 +138,12 @@
     }
   ],
   "skillGroups": [
-    { "title": "Backend & Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["Golang", "FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
-    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP"], "skills": ["RAG", "LangChain", "PyTorch", "TensorFlow", "OpenAI API", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Semantic search"] },
-    { "title": "Cloud & DevOps", "star": ["AWS"], "skills": ["Kubernetes", "Docker", "GitHub Actions", "Jenkins", "Nginx", "Capistrano"] },
+    { "title": "Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["Golang", "FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
+    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP", "TensorFlow", "Pytorch"], "skills": ["RAG", "LangChain", "OpenAI API", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Semantic search"] },
+    { "title": "Cloud & DevOps", "star": ["AWS", "Kubernetes", "Docker", "GitHub Actions"], "skills": [ "Jenkins", "Nginx", "Capistrano"] },
     { "title": "Data & Storage", "star": ["PostgreSQL"], "skills": ["pgvector", "MySQL", "Redis", "ElasticSearch", "Algolia"] },
     { "title": "Security & Auth", "star": ["RBAC"], "skills": ["JWT", "Refresh tokens", "TOTP 2FA", "Rate limiting", "Encryption", "Audit logging"] },
-    { "title": "Observability", "star": [], "skills": ["Grafana", "Kibana", "New Relic", "CloudWatch"] },
-    { "title": "Agentic tooling", "star": ["Claude MCP"], "skills": ["Codex MCP", "Cursor", "Windsurf", "GitHub Copilot"] }
+    { "title": "Observability", "star": ["New Relic"], "skills": ["Grafana", "Kibana", "CloudWatch"] },
+    { "title": "Agentic tooling", "star": ["Claude MCP", "Codex MCP"], "skills": [ "Cursor", "Windsurf", "GitHub Copilot"] }
   ]
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
   EDGES,
@@ -76,11 +76,37 @@ function tourXZ(u: number, side = 0, lat = 0): { x: number; z: number; anchor: A
 
 type Tip = { x: number; z: number; title: string; sub: string };
 
+/** Where the tooltip box actually sits in the map body, in px, plus the point
+ *  along its edge that grows out of the marker. */
+type TipBox = { left: number; top: number; flip: boolean; originX: number };
+
+// Breathing room between the tooltip and the map card's clipped edges, and
+// between the tooltip and the marker it points at.
+const TIP_PAD = 6;
+const TIP_GAP = 9;
+
 type MapCenter = { x: number; z: number };
 
 // Keep enough of the world visible to retain the minimap's sense of place, but
 // crop it just enough that dragging has useful travel in every direction.
 const MAP_VIEW_SCALE = 0.72;
+// The card is 176px wide at rest and 344px under the pointer, so its aspect
+// ratio swings from tall to wide. A viewBox of one fixed world size can't serve
+// both: preserveAspectRatio="meet" fits it to whichever axis is tighter and
+// lets the other axis show a bonus band of world beyond the box. The narrow
+// card's bonus band is vertical, and that band is what made the trail network
+// look complete — the window itself was never tall enough to hold it. Widening
+// the card moved the bonus to the horizontal axis, zoomed in 37%, and cut the
+// roads off the bottom edge.
+//
+// So the world window is derived from the card's measured size at a FIXED
+// world-units-per-pixel instead: the viewBox always matches the box's aspect
+// ratio, growing the card reveals more world rather than magnifying it, and
+// nothing that was visible before disappears. The constant is the resting
+// card's own scale, which keeps that state pixel-identical to before:
+// 162px of drawable width (176 card − 2 border − 12 svg padding) over the
+// window width MAP_VIEW_SCALE used to produce.
+const MAP_REST_PX = 162;
 const DRAG_SLOP = 5;
 
 function clampMapCenter(
@@ -89,11 +115,17 @@ function clampMapCenter(
   viewW: number,
   viewH: number,
 ): MapCenter {
-  const halfW = viewW / 2;
-  const halfH = viewH / 2;
+  // A window wider than the world it looks at has no travel left on that axis:
+  // the two clamp bounds cross over, so pin it to the middle rather than let
+  // Math.min pick the inverted edge.
+  const axis = (min: number, size: number, view: number, value: number) => {
+    if (view >= size) return min + size / 2;
+    const half = view / 2;
+    return Math.min(min + size - half, Math.max(min + half, value));
+  };
   return {
-    x: Math.min(bounds.x + bounds.w - halfW, Math.max(bounds.x + halfW, center.x)),
-    z: Math.min(bounds.z + bounds.h - halfH, Math.max(bounds.z + halfH, center.z)),
+    x: axis(bounds.x, bounds.w, viewW, center.x),
+    z: axis(bounds.z, bounds.h, viewH, center.z),
   };
 }
 
@@ -124,6 +156,14 @@ export default function JourneyMap({
   const go = mode === "teleport" ? "teleport" : mode;
   const dotRef = useRef<SVGCircleElement>(null);
   const ringRef = useRef<SVGCircleElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tipBox, setTipBox] = useState<TipBox | null>(null);
+  // The SVG's content box in CSS px — the actual SVG viewport, which the world
+  // window is cut to match. Measured rather than assumed: the card animates
+  // between two widths and the rail shrinks its height on short windows.
+  const [svgBox, setSvgBox] = useState<{ w: number; h: number } | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -162,15 +202,25 @@ export default function JourneyMap({
     };
   }, []);
 
-  const viewW = vb.w * MAP_VIEW_SCALE;
-  const viewH = vb.h * MAP_VIEW_SCALE;
+  // World units per CSS pixel — fixed, so the card's size decides how much world
+  // it shows and never how big that world is drawn. See MAP_REST_PX.
+  const worldPerPx = (vb.w * MAP_VIEW_SCALE) / MAP_REST_PX;
+  // Until the first measurement lands (server render, or a browser with no
+  // ResizeObserver) fall back to the old fixed window — it's what the card drew
+  // before, so the first paint is never wrong, only less exact.
+  const viewW = svgBox ? svgBox.w * worldPerPx : vb.w * MAP_VIEW_SCALE;
+  const viewH = svgBox ? svgBox.h * worldPerPx : vb.h * MAP_VIEW_SCALE;
   const [mapCenter, setMapCenter] = useState<MapCenter>(() =>
     clampMapCenter({ x: avatarPos.x, z: avatarPos.z }, vb, viewW, viewH),
   );
   const [dragging, setDragging] = useState(false);
+  // Clamped on the way out rather than on the way in: a card that just grew
+  // shows more world, so a centre that was hard against an edge when it was
+  // stored is past that edge now.
+  const center = clampMapCenter(mapCenter, vb, viewW, viewH);
   const view = {
-    x: mapCenter.x - viewW / 2,
-    z: mapCenter.z - viewH / 2,
+    x: center.x - viewW / 2,
+    z: center.z - viewH / 2,
     w: viewW,
     h: viewH,
   };
@@ -187,6 +237,27 @@ export default function JourneyMap({
     },
     [vb, viewW, viewH],
   );
+
+  // Track the SVG viewport. contentRect is the content box — padding excluded,
+  // which is exactly the region the viewBox maps onto.
+  useLayoutEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width <= 0 || height <= 0) return;
+      setSvgBox((prev) =>
+        prev && Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5
+          ? prev
+          : { w: width, h: height },
+      );
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // The card renders nothing until it's active, and collapses the body when
+    // shut — so the SVG this observes mounts and unmounts under both.
+  }, [active, open]);
+
 
   const onPointerDown = useCallback((event: ReactPointerEvent<SVGSVGElement>) => {
     if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -406,6 +477,66 @@ export default function JourneyMap({
   const show = useCallback((t: Tip) => setTip(t), []);
   const hide = useCallback(() => setTip(null), []);
 
+  // Place the tooltip in the map body's own pixel space, then clamp the whole
+  // BOX inside it. Positioning it as a percentage of the body (with a
+  // translate(-50%)) put half the box outside the card for any marker near an
+  // edge, and the card clips its overflow — so tooltips on the far left came
+  // out with their text sliced off. The marker's screen point comes from the
+  // SVG's own CTM, which already accounts for the svg padding and any
+  // preserveAspectRatio letterboxing; the tooltip's real measured size decides
+  // how far it can travel. `originX` keeps the pop-in animation growing out of
+  // the marker even once the box has slid away from it.
+  useLayoutEffect(() => {
+    if (!tip) return;
+    const body = bodyRef.current;
+    const el = tipRef.current;
+    if (!body || !el) return;
+    const place = () => {
+      const ctm = svgRef.current?.getScreenCTM?.();
+      if (!ctm) return;
+      const p = new DOMPoint(tip.x, tip.z).matrixTransform(ctm);
+      const rect = body.getBoundingClientRect();
+      const cx = p.x - rect.left;
+      const cy = p.y - rect.top;
+      // offsetWidth/Height are layout px — unaffected by the resting scale(0.55).
+      const tw = el.offsetWidth;
+      const th = el.offsetHeight;
+      const maxLeft = Math.max(TIP_PAD, rect.width - tw - TIP_PAD);
+      const maxTop = Math.max(TIP_PAD, rect.height - th - TIP_PAD);
+      const flip = cy - TIP_GAP - th < TIP_PAD;
+      const left = Math.min(Math.max(cx - tw / 2, TIP_PAD), maxLeft);
+      const top = Math.min(
+        Math.max(flip ? cy + TIP_GAP + 4 : cy - TIP_GAP - th, TIP_PAD),
+        maxTop,
+      );
+      const next = {
+        left,
+        top,
+        flip,
+        originX: tw > 0 ? Math.min(100, Math.max(0, ((cx - left) / tw) * 100)) : 50,
+      };
+      // ResizeObserver fires once on observe and again on every frame of the
+      // width transition — keep the identical ones from re-rendering.
+      setTipBox((prev) =>
+        prev &&
+        prev.left === next.left &&
+        prev.top === next.top &&
+        prev.flip === next.flip &&
+        prev.originX === next.originX
+          ? prev
+          : next,
+      );
+    };
+    place();
+    // The card's width animates from 176px to 344px on hover, so a tooltip
+    // opened during that transition would be clamped against a width the card
+    // has already left behind. Re-place it on every frame of the resize.
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(place);
+    ro.observe(body);
+    return () => ro.disconnect();
+  }, [tip]);
+
   // The ENTIRE static map — roads, buildings, and every clickable marker — as a
   // single memoized element. It depends only on the route highlight (activeId)
   // and stable data/handlers, so hovering a marker (which sets `tip`) reuses
@@ -569,9 +700,13 @@ export default function JourneyMap({
   );
 
   if (!active) return null;
-  const tipLeft = tip ? Math.min(84, Math.max(16, ((tip.x - view.x) / view.w) * 100)) : 0;
-  const tipTop = tip ? ((tip.z - view.z) / view.h) * 100 : 0;
-  const tipFlip = tip ? (tip.z - view.z) / view.h < 0.2 : false;
+  // Until the box has been measured (the first paint of a tooltip, or a browser
+  // with no CTM), fall back to the marker's position as a percentage — roughly
+  // right, and invisible anyway at opacity 0.
+  const tipFallback = {
+    left: `${tip ? ((tip.x - view.x) / view.w) * 100 : 0}%`,
+    top: `${tip ? ((tip.z - view.z) / view.h) * 100 : 0}%`,
+  };
 
   return (
     <div className="jrnMap" data-open={open ? "1" : undefined}>
@@ -588,8 +723,9 @@ export default function JourneyMap({
           <p className="jrnMapHint">
             Drag in any direction · Click a marker to {go === "teleport" ? "teleport" : `${go} there`}
           </p>
-          <div className="jrnMapBody">
+          <div className="jrnMapBody" ref={bodyRef}>
             <svg
+              ref={svgRef}
               viewBox={`${view.x} ${view.z} ${view.w} ${view.h}`}
               className="jrnMapSvg"
               data-dragging={dragging ? "1" : undefined}
@@ -629,10 +765,15 @@ export default function JourneyMap({
 
             {/* springy hover tooltip, anchored over the hovered marker */}
             <div
+              ref={tipRef}
               className="jrnMapTip"
               data-show={tip ? "1" : undefined}
-              data-flip={tipFlip ? "1" : undefined}
-              style={{ left: `${tipLeft}%`, top: `${tipTop}%` }}
+              data-flip={tipBox?.flip ? "1" : undefined}
+              style={{
+                left: tipBox ? `${tipBox.left}px` : tipFallback.left,
+                top: tipBox ? `${tipBox.top}px` : tipFallback.top,
+                transformOrigin: `${tipBox?.originX ?? 50}% ${tipBox?.flip ? "0%" : "100%"}`,
+              }}
               aria-hidden={!tip}
             >
               <b>{tip?.title}</b>

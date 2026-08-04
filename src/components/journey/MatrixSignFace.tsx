@@ -6,6 +6,10 @@ import { useFrame } from "@react-three/fiber";
 
 const GLYPHS = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ{}[]<>/\\|:+-=*#_";
 const REVEAL_SECONDS = 3.4;
+// How close the camera has to get before a board starts resolving. Landmarks
+// call 22 m "near"; the chase camera trails the avatar by a few metres, so the
+// board reads as arriving at roughly the same moment on foot.
+const REVEAL_DISTANCE = 26;
 const DESIGN_WIDTH = 1200;
 const TEXTURE_WIDTH = 3200;
 
@@ -200,7 +204,7 @@ export default function MatrixSignFace({
   active?: boolean;
   titleFontSize?: number;
 }) {
-  const [reveal, setReveal] = useState(false);
+  const face = useRef<THREE.Mesh>(null);
   const [surface] = useState(() => {
     if (typeof document === "undefined") return null;
     const canvas = document.createElement("canvas");
@@ -214,22 +218,44 @@ export default function MatrixSignFace({
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.anisotropy = 16;
-    drawSign(context, canvas, title, subtitle, action, system, reveal ? 0 : REVEAL_SECONDS, 0, active, titleFontSize);
+    // Boards hold at reveal-frame zero — unresolved glyph noise — so walking up
+    // to one plays a formation rather than a re-scramble of readable text.
+    drawSign(context, canvas, title, subtitle, action, system, 0, 0, active, titleFontSize);
     texture.needsUpdate = true;
     return { canvas, context, texture };
   });
-  const animation = useRef({ elapsed: REVEAL_SECONDS, accumulator: 0, tick: 0, complete: true });
+  const animation = useRef({ elapsed: 0, accumulator: 0, tick: 0, started: false, complete: false });
+  const world = useRef(new THREE.Vector3());
+  const toBoard = useRef(new THREE.Vector3());
+  const facing = useRef(new THREE.Vector3());
 
+  // Content and the near/hover glow can change at any point in the reveal.
+  // Redraw at the clock's current position instead of restarting it, or every
+  // hover would kick the formation back to noise.
   useEffect(() => {
     if (!surface) return;
-    animation.current = { elapsed: reveal ? 0 : REVEAL_SECONDS, accumulator: 0, tick: 0, complete: !reveal };
-    drawSign(surface.context, surface.canvas, title, subtitle, action, system, animation.current.elapsed, 0, active, titleFontSize);
+    const state = animation.current;
+    drawSign(surface.context, surface.canvas, title, subtitle, action, system, state.elapsed, state.tick, active, titleFontSize);
     surface.texture.needsUpdate = true;
-  }, [active, action, reveal, subtitle, surface, system, title, titleFontSize]);
+  }, [active, action, subtitle, surface, system, title, titleFontSize]);
 
-  useFrame((_, delta) => {
+  useFrame((frame, delta) => {
     if (!surface || animation.current.complete) return;
     const state = animation.current;
+    if (!state.started) {
+      let trigger = active;
+      if (!trigger && face.current) {
+        face.current.getWorldPosition(world.current);
+        toBoard.current.copy(world.current).sub(frame.camera.position);
+        frame.camera.getWorldDirection(facing.current);
+        // Only resolve boards the visitor could plausibly be looking at, so a
+        // sign passed at their back keeps its noise for the return trip.
+        trigger = toBoard.current.length() < REVEAL_DISTANCE
+          && toBoard.current.dot(facing.current) > 0;
+      }
+      if (!trigger) return;
+      state.started = true;
+    }
     state.elapsed = Math.min(REVEAL_SECONDS, state.elapsed + delta);
     state.accumulator += delta;
     if (state.accumulator < 1 / 12 && state.elapsed < REVEAL_SECONDS) return;
@@ -247,7 +273,7 @@ export default function MatrixSignFace({
     // Billboarded signs can be viewed from angles where a centred support
     // post reaches slightly past the board's shallow box. Keep the emissive
     // face far enough forward that the pole always remains behind the text.
-    <mesh position={[0, 0, 0.12]} renderOrder={2} onClick={() => setReveal(true)}>
+    <mesh ref={face} position={[0, 0, 0.12]} renderOrder={2}>
       <planeGeometry args={[width * 0.96, height * 0.9]} />
       <meshBasicMaterial
         map={surface.texture}

@@ -77,6 +77,9 @@ const LOADING_MESSAGES = [
   "Loading projects and systems…",
   "Initializing AI guide…",
 ];
+/** How long each loading line holds. Must match the `jrnGateMsg` keyframes and
+ *  `.jrnGateText i`'s animation-duration (= this × LOADING_MESSAGES.length). */
+const LOADING_MESSAGE_MS = 2200;
 
 /** Where the guided tour has got to: which beat, and whether the avatar is
  *  still walking to it or parked in front of its card. */
@@ -208,18 +211,6 @@ export default function JourneyOverlay() {
   const walkTarget = useRef<string>("");
 
   const { progress } = useProgress();
-  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
-
-  useEffect(() => {
-    if (phase === "ready") return;
-    let index = 0;
-    setLoadingMessage(LOADING_MESSAGES[index]);
-    const timer = window.setInterval(() => {
-      index = (index + 1) % LOADING_MESSAGES.length;
-      setLoadingMessage(LOADING_MESSAGES[index]);
-    }, 2200);
-    return () => window.clearInterval(timer);
-  }, [phase]);
 
   // The first landing is a short, interruptible title sequence. The board reveal runs underneath it.
   useEffect(() => {
@@ -951,9 +942,6 @@ export default function JourneyOverlay() {
           this strange snowy world is for. */}
       {phase !== "ready" && (
         <div className={`jrnGate ${phase === "building" ? "lifting" : ""}`}>
-          <div className="jrnGateTrail" aria-hidden="true">
-            <span style={{ transform: "scaleX(" + Math.max(0.04, progress / 100) + ")" }} />
-          </div>
           <div className="jrnGateSnow" aria-hidden="true">
             {Array.from({ length: 18 }, (_, index) => <i key={index} />)}
           </div>
@@ -977,7 +965,18 @@ export default function JourneyOverlay() {
             <div className="jrnRing" role="progressbar" aria-label="Loading the 3D trail" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
               <span style={{ transform: `scaleX(${Math.max(0.04, progress / 100)})` }} />
             </div>
-            <p className="jrnGateText" aria-live="polite">{loadingMessage}</p>
+            {/* Cycled by CSS, not by a timer. Loading this world pegs the main
+                thread for seconds at a stretch (GLB decode, scene construction,
+                shader compile), so a setInterval that swaps React state never
+                got a frame to paint and the visitor only ever read the first
+                line. Compositor-driven opacity keeps running through all of it. */}
+            <p className="jrnGateText" aria-hidden="true">
+              {LOADING_MESSAGES.map((message, index) => (
+                <i key={message} style={{ animationDelay: `${index * LOADING_MESSAGE_MS}ms` }}>
+                  {message}
+                </i>
+              ))}
+            </p>
 
             {/* The single highest-value button on the site. Most people land
                 here, admire the snow and leave without reading a word, because

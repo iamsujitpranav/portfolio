@@ -563,11 +563,27 @@ footer a:hover { color: var(--text); }
 @keyframes jrnGateUp { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
 .jrnRing { position: relative; z-index: 1; width: min(360px, 72vw); height: 5px; border-radius: 999px; background: rgba(23,25,31,0.12); overflow: hidden; margin-top: 34px; box-shadow: 0 0 0 1px rgba(255,255,255,0.22); }
 .jrnRing span { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #b06a2c, #c22b45 58%, #d8f0ed); transition: transform 0.25s ease; }
-.jrnGateText { min-height: 1.4em; margin: 14px 0 0; font-family: var(--font-mono); font-size: 13px; color: #4a4433; letter-spacing: 0.04em; }
-.jrnGateTrail { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(42,73,91,0.1); transform: translateY(26px); }
-.jrnGateTrail::before, .jrnGateTrail::after { content: ""; position: absolute; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: rgba(42,73,91,0.17); }
-.jrnGateTrail::before { left: 8%; } .jrnGateTrail::after { right: 8%; }
-.jrnGateTrail span { display: block; width: 100%; height: 100%; transform-origin: left; background: linear-gradient(90deg, transparent, rgba(57,119,133,0.42), rgba(222,245,242,0.7)); filter: blur(0.2px); transition: transform 0.35s ease; }
+/* The rotating status line. Every message is in the DOM at once and the cycle
+   runs on compositor-only opacity/transform, because the thing it narrates —
+   building the world — holds the main thread long enough that a JS timer would
+   never get to paint. 8.8s cycle = 4 messages × 2.2s (LOADING_MESSAGE_MS). */
+.jrnGateText { position: relative; height: 1.4em; width: 100%; margin: 14px 0 0; font-family: var(--font-mono); font-size: 13px; color: #4a4433; letter-spacing: 0.04em; }
+.jrnGateText i { position: absolute; left: 0; right: 0; top: 0; font-style: normal; opacity: 0;
+  animation: jrnGateMsg 8.8s var(--ease) infinite both; }
+@keyframes jrnGateMsg {
+  0% { opacity: 0; transform: translateY(5px); }
+  4%, 21% { opacity: 1; transform: none; }
+  25%, 100% { opacity: 0; transform: translateY(-5px); }
+}
+/* The global reduce rule collapses every animation to its final keyframe, which
+   here is "faded out" — so pin the first line instead of showing nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .jrnGateText i { animation: none !important; opacity: 0; }
+  .jrnGateText i:first-child { opacity: 1; }
+}
+/* Absolutely-positioned lines can't size their box, so reserve the two rows the
+   longest message wraps to once the viewport is narrow enough to wrap it. */
+@media (max-width: 420px) { .jrnGateText { height: 2.9em; } }
 .jrnGateSnow { position: absolute; inset: 0; pointer-events: none; opacity: 0; animation: jrnSnowBegin 1.6s ease 1.1s forwards; }
 .jrnGateSnow i { position: absolute; top: -8%; left: calc(4% + (var(--flake) * 7%)); width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.72); box-shadow: 0 0 10px rgba(255,255,255,0.5); animation: jrnSnowFall calc(4s + (var(--flake) * 0.23s)) linear calc(var(--flake) * -0.4s) infinite; }
 .jrnGateSnow i:nth-child(1) { --flake: 1; } .jrnGateSnow i:nth-child(2) { --flake: 2; } .jrnGateSnow i:nth-child(3) { --flake: 3; } .jrnGateSnow i:nth-child(4) { --flake: 4; } .jrnGateSnow i:nth-child(5) { --flake: 5; } .jrnGateSnow i:nth-child(6) { --flake: 6; } .jrnGateSnow i:nth-child(7) { --flake: 7; } .jrnGateSnow i:nth-child(8) { --flake: 8; } .jrnGateSnow i:nth-child(9) { --flake: 9; } .jrnGateSnow i:nth-child(10) { --flake: 10; } .jrnGateSnow i:nth-child(11) { --flake: 11; } .jrnGateSnow i:nth-child(12) { --flake: 12; } .jrnGateSnow i:nth-child(13) { --flake: 13; } .jrnGateSnow i:nth-child(14) { --flake: 14; } .jrnGateSnow i:nth-child(15) { --flake: 15; } .jrnGateSnow i:nth-child(16) { --flake: 16; } .jrnGateSnow i:nth-child(17) { --flake: 17; } .jrnGateSnow i:nth-child(18) { --flake: 18; }
@@ -1160,17 +1176,25 @@ html.jrn-opening-shot .jrnKioskTag {
   100% { transform: scale(1.25); opacity: 0; }
 }
 
-/* the springy hover tooltip anchored over the hovered marker */
-.jrnMapTip { position: absolute; z-index: 2; max-width: 190px; padding: 7px 11px 8px;
+/* the springy hover tooltip anchored over the hovered marker. JourneyMap sets
+   left/top in px — already measured, flipped and clamped inside .jrnMapBody, so
+   a marker at the card's edge can't push its text out under the overflow clip.
+   Nothing here may re-offset the box: the transform is scale only, and the
+   origin (also set inline) is what keeps the pop growing out of the marker.
+   The width cap is min(...) so the narrow, un-hovered card can't be overflowed
+   either. */
+.jrnMapTip { position: absolute; z-index: 2; max-width: min(190px, calc(100% - 12px));
+  padding: 7px 11px 8px;
   display: flex; flex-direction: column; gap: 2px; pointer-events: none;
   background: rgba(255,252,244,0.97); border: 1px solid rgba(23,25,31,0.14); border-radius: 11px;
   box-shadow: 0 10px 26px rgba(23,25,31,0.26);
-  transform: translate(-50%, calc(-100% - 9px)) scale(0.55); opacity: 0;
+  transform: scale(0.55); opacity: 0;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.16s ease; }
-.jrnMapTip[data-show="1"] { transform: translate(-50%, calc(-100% - 9px)) scale(1); opacity: 1; }
-.jrnMapTip[data-flip="1"] { transform: translate(-50%, 13px) scale(0.55); }
-.jrnMapTip[data-flip="1"][data-show="1"] { transform: translate(-50%, 13px) scale(1); }
-.jrnMapTip b { font-family: var(--font-sans, inherit); font-size: 12px; font-weight: 650; color: #26231b; white-space: nowrap; }
+.jrnMapTip[data-show="1"] { transform: scale(1); opacity: 1; }
+/* A title too long for the cap wraps rather than spilling past the border —
+   the box is only clamped by what it measures. */
+.jrnMapTip b { font-family: var(--font-sans, inherit); font-size: 12px; font-weight: 650; color: #26231b;
+  overflow-wrap: anywhere; }
 .jrnMapTip span { font-family: var(--font-mono); font-size: 10px; line-height: 1.35; color: #6b6350; }
 
 /* "You are standing at something playable" prompt */
