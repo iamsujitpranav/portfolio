@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:backend": "cd backend && ./venv/bin/python -m pytest"
+    "test:backend": "cd backend && ./venv/bin/python -m pytest",
+    "resume:icons": "node scripts/build_resume_icons.mjs",
+    "resume": "cd backend && ./venv/bin/python ../scripts/build_recruiter_resume.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",

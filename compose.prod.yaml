@@ -27,7 +27,7 @@ x-backend-environment: &backend-environment
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   SMTP_FROM: ${SMTP_FROM:-}
-  CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-sujitreddy0602@gmail.com}
+  CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-contact@sujitpranavreddy.dev}
   # Same-origin behind nginx, so this only matters for a stray cross-origin
   # caller — keep it to the real site.
   CORS_ORIGINS: ${CORS_ORIGINS:-https://sujitpranavreddy.dev}

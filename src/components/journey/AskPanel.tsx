@@ -198,8 +198,7 @@ export default function AskPanel({
       // The terminal remains usable as a clear status surface even when the
       // answering backend is unavailable.
       replaceLast(
-        "I can't reach the answering service right now — it needs the FastAPI backend up with an " +
-          `ANTHROPIC_API_KEY set. Every stop on this trail is still there to visit, and ${profile.email} always works.`,
+        `I can't reach the answering service right now — Every stop on this trail is still there to visit, and ${profile.email} always works.`,
       );
     } finally {
       setBusy(false);

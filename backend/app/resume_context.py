@@ -67,6 +67,7 @@ def resume_chunks() -> list[tuple[str, str]]:
     p = d["profile"]
     chunks: list[tuple[str, str]] = []
     chunks.append(("resume:summary", f"{p['name']} — {p['title']}. {p['summary']} Availability: {p['openTo']}"))
+    chunks.append(("resume:education", f"{p['name']} education: {p['education']}"))
     for j in d["experience"]:
         chunks.append(
             (

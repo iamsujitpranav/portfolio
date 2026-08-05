@@ -8,7 +8,6 @@ import AskResume from "@/components/AskResume";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 import JourneyOverlay from "@/components/journey/JourneyOverlay";
-import Soundtrack from "@/components/Soundtrack";
 import { skillGroups } from "@content/resume";
 
 // Build the marquee from résumé skills — starred ones get emphasis.
@@ -29,11 +28,6 @@ export default function HomePage() {
       <AskResume />
       <Contact />
       <Footer />
-      {/* Same soundtrack the journey plays, docked to the classic résumé. Both
-          pills drive one shared <audio> (lib/soundtrack), so skipping out of the
-          3D world doesn't cut the music — and CSS hides this one whenever the
-          overlay is on screen so there's never a second control. */}
-      <Soundtrack className="siteMusic" />
       {/* Immersive 3D walking-trail résumé. Renders on top of the classic
           site above (kept in the DOM for SEO + the "skip to classic" path). */}
       <JourneyOverlay />

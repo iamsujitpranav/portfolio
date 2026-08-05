@@ -1,8 +1,10 @@
 """Build the downloadable recruiter résumé from content/resume.json.
 
 Layout is deliberately ATS-friendly: a single linear column, real text in a
-standard font, plain "•" bullets, and conventional section names — no tables,
-text boxes, or graphics that trip résumé parsers.
+standard font, plain "•" bullets, and conventional section names — no tables or
+text boxes that trip résumé parsers. Icons are purely decorative inline images
+(scripts/resume_icons, rebuilt by scripts/build_resume_icons.mjs); every value
+they sit next to is still real, selectable text, so parsers lose nothing.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from reportlab.platypus import (
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "content" / "resume.json"
+ICONS = ROOT / "scripts" / "resume_icons" / "png"
 OUTPUTS = (ROOT / "output" / "pdf" / "recruiter-resume.pdf", ROOT / "public" / "resume.pdf")
 
 ACCENT = colors.HexColor("#b32642")
@@ -75,6 +78,23 @@ def period_text(value: str) -> str:
 
 def bare_url(value: str) -> str:
     return re.sub(r"^https?://(www\.)?", "", value).rstrip("/")
+
+
+def handle(value: str) -> str:
+    """Show the profile handle rather than the full URL - the logo says where."""
+    return bare_url(value).split("/", 1)[-1]
+
+
+def icon(name: str, size: float = 9.0) -> str:
+    """Inline decorative icon, followed by a non-breaking space."""
+    source = ICONS / f"{name}.png"
+    if not source.exists():
+        raise FileNotFoundError(f"{source} missing - run: node scripts/build_resume_icons.mjs")
+    return f'<img src="{source}" width="{size}" height="{size}" valign="middle"/>&nbsp;'
+
+
+def linked(url: str, label: str, logo: str) -> str:
+    return f'<link href="{url}" color="#626978">{icon(logo, 9.6)}{esc(label)}</link>'
 
 
 class ResumeDocTemplate(BaseDocTemplate):
@@ -135,26 +155,34 @@ def build() -> None:
         "Bullet", parent=body, leftIndent=10, bulletIndent=2, spaceAfter=3,
     )
 
-    def heading(label: str) -> list[object]:
+    def heading(label: str, glyph: str) -> list[object]:
         return [
-            Paragraph(label, section),
+            Paragraph(f"{icon(glyph, 10)}{label}", section),
             HRFlowable(width="100%", thickness=0.6, color=RULE, spaceBefore=0, spaceAfter=4),
         ]
 
-    links = " | ".join(
-        f'<link href="{profile[key]}" color="#626978">{esc(bare_url(profile[key]))}</link>'
-        for key in ("linkedin", "github")
-    )
+    separator = "&nbsp;&nbsp;&nbsp;"
+    details = separator.join([
+        f"{icon('location')}{esc(profile['location'])}",
+        f'{icon("mail")}<link href="mailto:{profile["email"]}" color="#626978">{esc(profile["email"])}</link>',
+        f"{icon('phone')}{esc(profile['phone'])}",
+    ])
+    links = separator.join([
+        linked(profile["website"], bare_url(profile["website"]), "website"),
+        linked(profile["linkedin"], handle(profile["linkedin"]), "linkedin"),
+        linked(profile["github"], handle(profile["github"]), "github"),
+    ])
     story: list[object] = [
         Paragraph(esc(profile["name"]), name),
         Paragraph(esc(profile["title"]), title),
-        Paragraph(
-            f"{esc(profile['location'])} | {esc(profile['email'])} | {esc(profile['phone'])}",
-            contact,
-        ),
-        Paragraph(f"{links} | {esc(profile['openTo'])}", contact),
-        KeepTogether([*heading("PROFESSIONAL SUMMARY"), Paragraph(esc(profile["summary"]), body)]),
-        *heading("PROFESSIONAL EXPERIENCE"),
+        Paragraph(details, contact),
+        Paragraph(links, contact),
+        Paragraph(esc(profile["openTo"]), contact),
+        KeepTogether([
+            *heading("PROFESSIONAL SUMMARY", "summary"),
+            Paragraph(esc(profile["summary"]), body),
+        ]),
+        *heading("PROFESSIONAL EXPERIENCE", "experience"),
     ]
 
     for job in experience:
@@ -179,21 +207,27 @@ def build() -> None:
         )
         for group in skills
     ]
-    story.append(KeepTogether([*heading("TECHNICAL SKILLS"), groups[0]]))
+    story.append(KeepTogether([*heading("TECHNICAL SKILLS", "skills"), groups[0]]))
     story.extend(groups[1:])
 
     story.extend([
         KeepTogether([
-            *heading("LEADERSHIP FOCUS"),
+            *heading("LEADERSHIP FOCUS", "leadership"),
             Paragraph(
                 "Architecture direction, delivery planning, code review, mentoring, platform modernization, and building practical AI capabilities that can be operated in production.",
                 body,
             ),
         ]),
-        KeepTogether([*heading("EDUCATION"), Paragraph(esc(profile["education"]), body)]),
-        KeepTogether([*heading("LANGUAGES"), Paragraph(esc(", ".join(profile["languages"])), body)]),
         KeepTogether([
-            *heading("PERSONAL DETAILS"),
+            *heading("EDUCATION", "education"),
+            Paragraph(esc(profile["education"]), body),
+        ]),
+        KeepTogether([
+            *heading("LANGUAGES", "languages"),
+            Paragraph(esc(", ".join(profile["languages"])), body),
+        ]),
+        KeepTogether([
+            *heading("PERSONAL DETAILS", "personal"),
             Paragraph("<b>Date of Birth:</b> " + esc(profile["dateOfBirth"]), body),
             Paragraph("<b>Hobbies:</b> " + esc(", ".join(profile["hobbies"])), body),
             Paragraph("<b>Marital Status:</b> " + esc(profile["maritalStatus"]), body),

@@ -25,6 +25,7 @@ export type Profile = {
   yearsAI: number;
   location: string;
   email: string;
+  website: string;
   linkedin: string;
   github: string;
   phone: string;

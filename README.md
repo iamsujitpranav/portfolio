@@ -179,6 +179,9 @@ is still in the repo for a bare-metal install.
 
 ## Editing content
 - **Résumé:** edit `content/resume.json` (frontend + backend both pick it up; re-run `app.ingest` for RAG).
+  The downloadable PDF (`public/resume.pdf`) is a **committed build artifact** — nothing regenerates it
+  automatically, so run `npm run resume` after editing and commit the result, or the download keeps serving
+  the old content. `npm run resume:icons` re-rasterizes `scripts/resume_icons/svg` (only needed if an icon changed).
 - **Blog:** add `content/articles/<slug>.mdx` with frontmatter (`title`, `description`, `date`, `tags`, `readingTime`).
 - **Theme/colors:** CSS custom properties at the top of `src/app/globals.css` (the ruby accent is `--accent`).
 

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { toggleTheme } from "@/lib/theme";
 import { useTheme } from "@/lib/useTheme";
 import { RecruiterModeToggle } from "./RecruiterMode";
+import Soundtrack from "./Soundtrack";
 
 const SECTIONS = [
   { id: "top", label: "01 · intro" },
@@ -78,6 +79,13 @@ export default function StatusBar() {
           <kbd>⌘</kbd>
           <kbd>K</kbd> <span className="kbtxt">menu</span>
         </button>
+        {/* Same soundtrack the journey plays — one shared <audio> (lib/sound-
+            track), so skipping out of the 3D world doesn't cut the music. It
+            lives in the bar rather than floating over the page, which also
+            carries it to /blog. No hiding rule is needed while the journey is
+            up: .jrnRoot is fixed at z-index 900 and covers this bar, and the
+            overlay renders its own copy in its top row. */}
+        <Soundtrack className="navMusic" />
       </div>
     </div>
   );

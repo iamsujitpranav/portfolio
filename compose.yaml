@@ -14,7 +14,7 @@ x-backend-environment: &backend-environment
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
   SMTP_FROM: ${SMTP_FROM:-}
-  CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-sujitreddy0602@gmail.com}
+  CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-contact@sujitpranavreddy.dev}
   CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:61991}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
   SESSION_SECRET: ${SESSION_SECRET:-}
