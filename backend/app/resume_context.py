@@ -35,6 +35,23 @@ def _job_lines(j: dict) -> str:
     return head + projects
 
 
+def career_chronology() -> str:
+    """Return an unambiguous oldest-to-newest view of the work history.
+
+    The résumé is displayed and stored newest-first, which is useful for the
+    page but dangerous for ordinal questions such as "first company" when RAG
+    returns only a few individual job chunks. Keep this as a dedicated fact so
+    the model never has to infer chronology from retrieval order.
+    """
+    jobs = list(reversed(_data()["experience"]))
+    lines = [
+        "CAREER CHRONOLOGY (oldest to newest; use this for first/earliest employer questions):",
+        f"EARLIEST / FIRST COMPANY: {jobs[0]['company']} ({jobs[0]['period']}).",
+    ]
+    lines.extend(f"{i}. {j['company']} — {j['role']} ({j['period']})" for i, j in enumerate(jobs, 1))
+    return "\n".join(lines)
+
+
 def full_context() -> str:
     d = _data()
     p = d["profile"]
@@ -54,6 +71,8 @@ def full_context() -> str:
             "",
             f"SUMMARY: {p['summary']}",
             "",
+            career_chronology(),
+            "",
             f"EXPERIENCE:\n{jobs}",
             "",
             f"SKILLS:\n{skills}",
@@ -68,6 +87,7 @@ def resume_chunks() -> list[tuple[str, str]]:
     chunks: list[tuple[str, str]] = []
     chunks.append(("resume:summary", f"{p['name']} — {p['title']}. {p['summary']} Availability: {p['openTo']}"))
     chunks.append(("resume:education", f"{p['name']} education: {p['education']}"))
+    chunks.append(("resume:career-chronology", career_chronology()))
     for j in d["experience"]:
         chunks.append(
             (

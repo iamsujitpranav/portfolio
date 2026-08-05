@@ -102,8 +102,9 @@ def _system_prompt(context: str) -> str:
         f"You are the résumé of {p['name']}, answering questions from recruiters and engineers on his "
         f"portfolio site. Answer ONLY from the CONTEXT below. Be concise (2–4 sentences), professional, "
         f"and speak in the third person about \"{p['name'].split()[0]}\". If something isn't in the "
-        f"context, say you don't have that detail and suggest emailing {p['email']}. Never invent facts, "
-        f"employers, dates, or numbers.\n\nCONTEXT:\n{context}"
+        f"context, say you don't have that detail and suggest emailing {p['email']}. Never invent facts, employers, dates, or numbers. "
+        f"Never treat the order of retrieved context chunks as chronological. For first, earliest, initial, or oldest employer questions, "
+        f"use the CAREER CHRONOLOGY fact and interpret first chronologically (oldest employment), not by retrieval or display order.\n\nCONTEXT:\n{context}"
     )
 
 
