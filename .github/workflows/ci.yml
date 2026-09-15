@@ -98,7 +98,7 @@ jobs:
         run: docker build --tag portfolio-backend:ci --file backend/Dockerfile .
 
       - name: Scan frontend image
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: portfolio-frontend:ci
           format: table
@@ -107,7 +107,7 @@ jobs:
           severity: CRITICAL,HIGH
 
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: portfolio-backend:ci
           format: table
