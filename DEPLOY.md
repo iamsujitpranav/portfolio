@@ -57,7 +57,18 @@ git push origin main
 `release.sh` tags **`origin/main`** (never your working tree), shows the
 commits since the last release, asks for confirmation, and pushes the tag.
 
-**2. On the server:**
+**2. Automated Deploy (GitHub Actions):**
+
+Once the tag is pushed to GitHub, `.github/workflows/deploy.yml` triggers automatically using the `production` environment secrets:
+- `PROD_SSH_HOST`
+- `PROD_SSH_PORT`
+- `PROD_SSH_USER`
+- `PROD_SSH_PRIVATE_KEY`
+- `PROD_REPO_DIR`
+
+The workflow connects via SSH and executes `./scripts/deploy.sh <tag>`.
+
+**Manual fallback (on the server):**
 
 ```bash
 ssh root@82.29.162.82
@@ -78,11 +89,6 @@ cd /home/arccaa/portfolio
 
 `INGEST=1 ./scripts/deploy.sh v1.0.1` also rebuilds the pgvector index — needed
 only when `content/resume.json` changed and RAG is enabled.
-
-> The remote is a bare repo **on the server itself**, so releasing needs no
-> GitHub. If you later push this to GitHub, add it as a second remote (or
-> repoint `origin`) and `.github/workflows/deploy.yml` will run step 2 for you
-> on every tag push.
 
 ---
 
@@ -133,9 +139,9 @@ at `http://82.29.162.82:61991`. Nothing needs restarting when DNS lands.
 
 ### Closing the plain-HTTP door
 
-`APP_BIND=0.0.0.0` in `.env.prod` is what makes `http://82.29.162.82:61991`
-work — useful before DNS moves, but it is unencrypted and bypasses Caddy.
-Once the domain resolves here:
+A temporary `APP_BIND=0.0.0.0` in `.env.prod` makes `http://82.29.162.82:61991`
+reachable before DNS moves, but it is unencrypted and bypasses Caddy. Keep the
+bridge-only bind once DNS resolves:
 
 ```bash
 sed -i 's/^APP_BIND=.*/APP_BIND=172.17.0.1/' .env.prod
@@ -155,7 +161,9 @@ port, the internet can't.
 | --- | --- |
 | `POSTGRES_PASSWORD` | `openssl rand -base64 24 \| tr -d '/+='` — it goes inside a URL, keep it URL-safe |
 | `ANTHROPIC_API_KEY` | without it the résumé chat is disabled; the rest of the site is fine |
-| `ADMIN_PASSWORD` + `SESSION_SECRET` | both required before `/admin` does anything |
+| `ADMIN_PASSWORD` + `SESSION_SECRET` + `ADMIN_TOTP_SECRET` | all required in production; the TOTP secret enables MFA |
+| `ADMIN_SESSION_EPOCH` | increment to invalidate all existing admin tokens without changing the signing secret |
+| `LEAD_RETENTION_DAYS` / `ANALYTICS_RETENTION_DAYS` | automatic cleanup windows; defaults are 730 and 90 days |
 | `SMTP_*` | optional — contact submissions still persist to Postgres without it |
 | `VOYAGE_API_KEY` *or* `OPENAI_API_KEY` | optional — enables pgvector RAG; keep `EMBED_DIM` aligned with the model |
 
@@ -194,6 +202,8 @@ $C logs -f gateway backend     # tail the app edge + API
 $C exec db psql -U portfolio portfolio
 $C restart backend             # after a non-NEXT_PUBLIC_ config change
 ```
+
+Admin login and article write events are logged without passwords, OTPs or lead contents; inspect them with `$C logs backend`.
 
 **Manual backup**
 
@@ -243,6 +253,6 @@ backend sees it.
 | Caddy won't reload | Run `caddy validate` first — the running config is kept, so the other sites stay up. Restore `Caddyfile.bak.*` if needed. |
 | Chat answers "unavailable" | `ANTHROPIC_API_KEY` missing — check `/api/health`. |
 | Chat answer arrives all at once | `flush_interval -1` missing from the Caddy block (the response is `text/plain`, which Caddy buffers by default). |
-| `/admin` won't accept the password | `ADMIN_PASSWORD` **and** `SESSION_SECRET` must both be set; `$C restart backend` after changing them. |
+| `/admin` won.t accept the password | Set `ADMIN_PASSWORD`, `SESSION_SECRET`, `ADMIN_TOTP_SECRET` and restart backend after changing them. |
 | Metadata/canonical shows the wrong host | `NEXT_PUBLIC_SITE_URL` is baked in at build time — fix `.env.prod` and redeploy (rebuild), not restart. |
 | Port 61991 already in use | Something else grabbed it — `ss -ltnp \| grep 61991`. Change `APP_PORT` in `.env.prod` **and** the port in the Caddy block. |

@@ -54,7 +54,7 @@ envval() {
 POSTGRES_USER="$(envval POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-portfolio}"
 POSTGRES_DB="$(envval POSTGRES_DB)";     POSTGRES_DB="${POSTGRES_DB:-portfolio}"
 APP_PORT="$(envval APP_PORT)";           APP_PORT="${APP_PORT:-61991}"
-APP_BIND="$(envval APP_BIND)";           APP_BIND="${APP_BIND:-0.0.0.0}"
+APP_BIND="$(envval APP_BIND)";           APP_BIND="${APP_BIND:-172.17.0.1}"
 # Check the stack on its own published port rather than through Caddy: this has
 # to work before DNS points here, and it isolates "did MY deploy come up" from
 # "is the shared edge routing correctly". A wildcard bind is reached over

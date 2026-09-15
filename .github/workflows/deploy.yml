@@ -1,20 +1,22 @@
 name: Deploy
 
-# Ships a release tag to the production server by running the same script you
-# would run by hand there — scripts/deploy.sh, which backs up Postgres, builds,
-# health-checks and rolls back on failure. Nothing about the deploy logic lives
-# in this file, so a broken Actions runner never blocks a manual deploy.
+# Ships a release tag to the production server by running scripts/deploy.sh on
+# the remote host, which creates a Postgres dump, checks out the release tag,
+# rebuilds containers, runs health checks, and rolls back automatically on failure.
 #
-# Required repository secrets:
-#   DEPLOY_HOST      server hostname or IP
-#   DEPLOY_USER      SSH user that owns the checkout at DEPLOY_PATH
-#   DEPLOY_SSH_KEY   private key for that user (no passphrase)
-#   DEPLOY_PATH      checkout on the server, e.g. /opt/sujit-portfolio
-# Optional:
-#   DEPLOY_PORT      SSH port (default 22)
+# Configured in GitHub Environment 'production' (or repository secrets):
+#   PROD_SSH_HOST          server hostname or IP
+#   PROD_SSH_USER          SSH user that owns the checkout at PROD_REPO_DIR
+#   PROD_SSH_PORT          SSH port (e.g. 22)
+#   PROD_SSH_PRIVATE_KEY   SSH private key with access to server
+#   PROD_REPO_DIR          checkout directory on the server, e.g. /home/arccaa/portfolio
+#
+# Fallbacks for legacy secret names (DEPLOY_*) are supported.
+
 on:
   push:
-    tags: ["v*.*.*"]
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       ref:
@@ -24,24 +26,39 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    # A tag push doesn't re-run CI's checks against that exact commit, so the
-    # deploy waits on nothing — cut releases from a green main.
     environment: production
     steps:
       - name: Resolve the ref to deploy
         id: ref
-        run: echo "value=${{ github.event.inputs.ref || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        run: |
+          DEPLOY_REF="${{ github.event.inputs.ref || github.ref_name }}"
+          echo "value=${DEPLOY_REF}" >> "$GITHUB_OUTPUT"
+          echo "Deploying ref: ${DEPLOY_REF}"
 
-      - name: Install the SSH key
+      - name: Setup SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY || secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST || secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || secrets.DEPLOY_PORT || '22' }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+          echo "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
+          [ -s ~/.ssh/id_deploy ] && [ -n "$(tail -c1 ~/.ssh/id_deploy)" ] && echo "" >> ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT || 22 }}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-      - name: Run the deploy script on the server
+      - name: Run deploy script on production server
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST || secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.PROD_SSH_PORT || secrets.DEPLOY_PORT || '22' }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER || secrets.DEPLOY_USER }}
+          REPO_DIR: ${{ secrets.PROD_REPO_DIR || secrets.DEPLOY_PATH }}
+          TARGET_REF: ${{ steps.ref.outputs.value }}
         run: |
-          ssh -i ~/.ssh/id_deploy -p "${{ secrets.DEPLOY_PORT || 22 }}" \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd ${{ secrets.DEPLOY_PATH }} && ./scripts/deploy.sh ${{ steps.ref.outputs.value }}"
+          ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" \
+            -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$SSH_HOST" \
+            "cd '$REPO_DIR' && ./scripts/deploy.sh '$TARGET_REF'"

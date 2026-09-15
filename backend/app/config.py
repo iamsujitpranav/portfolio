@@ -100,6 +100,17 @@ CHAT_CACHE_TTL = int(os.getenv("CHAT_CACHE_TTL", str(24 * 3600)))
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 SESSION_SECRET = os.getenv("SESSION_SECRET", "").strip()
 ADMIN_TOKEN_TTL = int(os.getenv("ADMIN_TOKEN_TTL", str(7 * 24 * 3600)))  # 7 days
+# Optional TOTP second factor. Production templates require this to be filled
+# before admin auth becomes active; local development can leave it blank.
+ADMIN_TOTP_SECRET = os.getenv("ADMIN_TOTP_SECRET", "").replace(" ", "").strip().upper()
+ADMIN_MFA_REQUIRED = _flag("ADMIN_MFA_REQUIRED", "0")
+# Rotating this value invalidates every existing admin token without changing
+# the signing key or requiring a database-backed session store.
+ADMIN_SESSION_EPOCH = os.getenv("ADMIN_SESSION_EPOCH", "1").strip()
+
+# Automatic privacy cleanup. Set either value to 0 to disable that cleanup.
+LEAD_RETENTION_DAYS = max(0, int(os.getenv("LEAD_RETENTION_DAYS", "730")))
+ANALYTICS_RETENTION_DAYS = max(0, int(os.getenv("ANALYTICS_RETENTION_DAYS", "90")))
 
 # --- Journey analytics ---
 # First-party only: no third-party script, no cookie, no IP stored. Off here
@@ -115,7 +126,16 @@ ANALYTICS_QUESTIONS = _flag("ANALYTICS_QUESTIONS", "0")
 
 # --- Feature flags derived from config ---
 DB_ENABLED = bool(DATABASE_URL)
-ADMIN_ENABLED = bool(ADMIN_PASSWORD and SESSION_SECRET)
+ADMIN_MFA_ENABLED = bool(ADMIN_TOTP_SECRET)
+# Fail closed when production declares MFA mandatory but has not supplied the
+# secret yet. This prevents a half-configured deployment from silently falling
+# back to password-only admin access.
+ADMIN_ENABLED = bool(
+    ADMIN_PASSWORD
+    and SESSION_SECRET
+    and ADMIN_SESSION_EPOCH
+    and (not ADMIN_MFA_REQUIRED or ADMIN_MFA_ENABLED)
+)
 EMBEDDINGS_ENABLED = bool(VOYAGE_API_KEY or OPENAI_API_KEY)
 RAG_ENABLED = DB_ENABLED and EMBEDDINGS_ENABLED
 SMTP_ENABLED = bool(SMTP_HOST and SMTP_USER and SMTP_PASSWORD)

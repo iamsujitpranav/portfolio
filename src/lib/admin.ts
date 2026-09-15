@@ -38,11 +38,11 @@ export function adminLogout(): void {
 }
 
 /** Exchange the password for a token, and remember it. */
-export async function adminLogin(password: string): Promise<void> {
+export async function adminLogin(password: string, otp = ""): Promise<void> {
   const res = await fetch("/api/admin/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ password, ...(otp ? { otp } : {}) }),
   });
   if (!res.ok) {
     throw new Error(await detail(res));

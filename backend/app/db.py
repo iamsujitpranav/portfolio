@@ -11,10 +11,10 @@ If DATABASE_URL is unset, the whole layer is inert and callers fall back
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import String, Text, Integer, Float, DateTime, Boolean, ARRAY, func
+from sqlalchemy import String, Text, Integer, Float, DateTime, Boolean, ARRAY, delete, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -35,7 +35,7 @@ class Lead(Base):
     email: Mapped[str] = mapped_column(String(320), index=True)
     message: Mapped[str] = mapped_column(Text)
     source_ip: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
 class Document(Base):
@@ -129,3 +129,20 @@ async def init_db() -> None:
                 "ON journey_events (created_at)"
             )
         )
+        await conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_leads_created_at ON leads (created_at)")
+        )
+        now = datetime.now(timezone.utc)
+        if config.LEAD_RETENTION_DAYS:
+            await conn.execute(
+                delete(Lead).where(
+                    Lead.created_at < now - timedelta(days=config.LEAD_RETENTION_DAYS)
+                )
+            )
+        if config.ANALYTICS_RETENTION_DAYS:
+            await conn.execute(
+                delete(JourneyEvent).where(
+                    JourneyEvent.created_at
+                    < now - timedelta(days=config.ANALYTICS_RETENTION_DAYS)
+                )
+            )

@@ -6,20 +6,50 @@ The whole module is inert unless ADMIN_PASSWORD and SESSION_SECRET are set.
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import hmac
+import logging
 import re
+import struct
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 
 from . import config, ratelimit
 from .db import Article, get_sessionmaker
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+logger = logging.getLogger("portfolio.admin")
+
+
+def _totp_code(secret: str, counter: int) -> str | None:
+    """Return a six-digit TOTP code for a base32 secret."""
+    try:
+        padded = secret + "=" * ((8 - len(secret) % 8) % 8)
+        key = base64.b32decode(padded, casefold=True)
+    except (ValueError, base64.binascii.Error):
+        return None
+    digest = hmac.new(key, struct.pack("!Q", counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    number = struct.unpack("!I", digest[offset : offset + 4])[0] & 0x7FFFFFFF
+    return f"{number % 1_000_000:06d}"
+
+
+def _valid_totp(code: str | None) -> bool:
+    if not code or not re.fullmatch(r"\d{6}", code.strip()):
+        return False
+    counter = int(time.time()) // 30
+    supplied = code.strip()
+    return any(
+        hmac.compare_digest(_totp_code(config.ADMIN_TOTP_SECRET, counter + drift) or "", supplied)
+        for drift in (-1, 0, 1)
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -37,7 +67,9 @@ async def require_admin(authorization: Optional[str] = Header(default=None)) -> 
         raise HTTPException(status_code=401, detail="missing bearer token")
     token = authorization.split(" ", 1)[1].strip()
     try:
-        _serializer().loads(token, max_age=config.ADMIN_TOKEN_TTL)
+        payload = _serializer().loads(token, max_age=config.ADMIN_TOKEN_TTL)
+        if payload.get("admin") is not True or payload.get("epoch") != config.ADMIN_SESSION_EPOCH:
+            raise BadSignature("stale admin session")
     except SignatureExpired:
         raise HTTPException(status_code=401, detail="session expired — log in again")
     except BadSignature:
@@ -50,6 +82,7 @@ async def require_admin(authorization: Optional[str] = Header(default=None)) -> 
 # --------------------------------------------------------------------------- #
 class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=500)
+    otp: str | None = Field(default=None, max_length=12)
 
 
 class LoginResponse(BaseModel):
@@ -59,23 +92,31 @@ class LoginResponse(BaseModel):
 
 class ArticleIn(BaseModel):
     title: str = Field(min_length=1, max_length=300)
-    body: str = Field(min_length=1)
+    body: str = Field(min_length=1, max_length=100_000)
     description: str = Field(default="", max_length=600)
-    tags: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list, max_length=20)
     slug: Optional[str] = Field(default=None, max_length=200)
     reading_time: Optional[str] = Field(default=None, max_length=40)
     published: bool = False
+    @field_validator("body")
+    @classmethod
+    def _safe_body(cls, value: str) -> str:
+        return _validate_mdx(value)
 
 
 class ArticleUpdate(BaseModel):
     """All optional — only the fields sent are changed (partial update)."""
 
     title: Optional[str] = Field(default=None, max_length=300)
-    body: Optional[str] = None
+    body: Optional[str] = Field(default=None, max_length=100_000)
     description: Optional[str] = Field(default=None, max_length=600)
-    tags: Optional[list[str]] = None
+    tags: Optional[list[str]] = Field(default=None, max_length=20)
     reading_time: Optional[str] = Field(default=None, max_length=40)
     published: Optional[bool] = None
+    @field_validator("body")
+    @classmethod
+    def _safe_body(cls, value: str | None) -> str | None:
+        return None if value is None else _validate_mdx(value)
 
 
 class ArticleOut(BaseModel):
@@ -97,6 +138,19 @@ class ArticleOut(BaseModel):
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+def _validate_mdx(value: str) -> str:
+    """Allow Markdown only; MDX code/imports never reach the evaluator."""
+    plain = re.sub(r"```[\s\S]*?```|`[^`]*`", "", value)
+    unsafe = (
+        re.search(r"(?mi)^\s*(?:import|export)\b", plain)
+        or re.search(r"<\s*/?\s*[A-Za-z][^>]*>", plain)
+        or re.search(r"[{}]", plain)
+        or re.search(r"(?i)\]\(\s*(?:javascript|data|vbscript):", plain)
+    )
+    if unsafe:
+        raise ValueError("article body may contain Markdown only")
+    return value
+
 def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return s or "post"
@@ -132,12 +186,18 @@ async def login(body: LoginRequest, request: Request):
     ip = ratelimit.client_ip(request)
     ratelimit.login_limiter.enforce(ip)
 
-    # Constant-time compare so a wrong password can't be probed by timing.
+    # Constant-time compare so a wrong password cannot be probed by timing.
     if not hmac.compare_digest(body.password, config.ADMIN_PASSWORD):
+        logger.warning("admin_login_failed reason=password ip=%s", ip)
         raise HTTPException(status_code=401, detail="invalid password")
 
+    if config.ADMIN_MFA_ENABLED and not _valid_totp(body.otp):
+        logger.warning("admin_login_failed reason=otp ip=%s", ip)
+        raise HTTPException(status_code=401, detail="invalid one-time code")
+
     ratelimit.login_limiter.reset(ip)
-    token = _serializer().dumps({"admin": True})
+    logger.info("admin_login_succeeded ip=%s", ip)
+    token = _serializer().dumps({"admin": True, "epoch": config.ADMIN_SESSION_EPOCH})
     return LoginResponse(token=token, expires_in=config.ADMIN_TOKEN_TTL)
 
 
@@ -195,6 +255,7 @@ async def admin_create(data: ArticleIn, _: bool = Depends(require_admin)):
         session.add(article)
         await session.commit()
         await session.refresh(article)
+        logger.info("admin_article_created slug=%s", article.slug)
         return article
 
 
@@ -223,6 +284,7 @@ async def admin_update(slug: str, data: ArticleUpdate, _: bool = Depends(require
 
         await session.commit()
         await session.refresh(article)
+        logger.info("admin_article_updated slug=%s fields=%s", slug, ",".join(sorted(fields)))
         return article
 
 
@@ -237,4 +299,5 @@ async def admin_delete(slug: str, _: bool = Depends(require_admin)):
             raise HTTPException(status_code=404, detail="article not found")
         await session.delete(article)
         await session.commit()
+        logger.info("admin_article_deleted slug=%s", slug)
     return None

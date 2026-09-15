@@ -26,6 +26,13 @@ describe("logging in", () => {
     expect(adminToken()).toBe("tok");
   });
 
+  it("sends the optional authenticator code when supplied", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { token: "tok" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await adminLogin("hunter2", "123456");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ password: "hunter2", otp: "123456" });
+  });
+
   it("keeps the token out of localStorage — it must die with the tab", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reply(200, { token: "tok" })));
     await adminLogin("hunter2");

@@ -40,6 +40,7 @@ export default function AdminGate({
   // null = "no opinion yet, go by what's in storage".
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const authed = signedIn ?? stored;
@@ -48,6 +49,7 @@ export default function AdminGate({
     adminLogout();
     setSignedIn(false);
     setPassword("");
+    setOtp("");
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -55,8 +57,9 @@ export default function AdminGate({
     setBusy(true);
     setError("");
     try {
-      await adminLogin(password);
+      await adminLogin(password, otp);
       setPassword("");
+      setOtp("");
       setSignedIn(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "login failed");
@@ -80,6 +83,18 @@ export default function AdminGate({
               autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
+            />
+          </label>
+          <label className="admField">
+            <span>Authenticator code (if enabled)</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="one-time-code"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="123456"
             />
           </label>
           {error && <p className="admError">{error}</p>}

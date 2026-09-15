@@ -30,7 +30,7 @@
     {
       "role": "Engineering Head",
       "company": "Arccaa Analysis & IT Solutions",
-      "period": "May 2026 - present",
+      "period": "Oct 2025 - present",
       "now": true,
       "summary": "Independent, part-time engagement. Leading engineering across three products - the AI recruitment platform, the AI services layer behind it, and the company's public web presence - architecture, delivery, and code review throughout. Works Claude MCP and Codex MCP into the development loop as repository-scale assistants, validating their output with scripts, tests, builds, and deployment checks.",
       "projects": [
@@ -89,8 +89,8 @@
       "stack": ["Rails 5.2", "TensorFlow", "Python", "Kubernetes", "GraphQL"]
     },
     {
-      "role": "Senior Associate Consultant",
-      "company": "Global Logic - iCIMS",
+      "role": "Associate Consultant",
+      "company": "Global Logic",
       "period": "May 2021 - Feb 2022",
       "summary": "Designed architecture for new enterprise HR features used by high-volume global clients. Led sprint planning across cross-functional teams and improved CI/CD via Jenkins + AWS, reducing deployment failures. Supported multi-client delivery for Workday, SuccessFactors, Marriott, and J&J.",
       "stack": ["Ruby 3.0", "MySQL", "Redis", "Sidekiq", "AWS", "Kubernetes", "Jenkins"]

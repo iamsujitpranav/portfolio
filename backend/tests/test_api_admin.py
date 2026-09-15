@@ -1,17 +1,22 @@
 """Admin auth: password login, signed tokens, and brute-force lockout."""
 from __future__ import annotations
 
+import time
+
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 
 from app import config, ratelimit
-from app.admin import estimate_reading_time, slugify
+from app.admin import _totp_code, estimate_reading_time, slugify
 
 from conftest import ip
 
 
-def login(client, password: str, addr: str = "7.0.0.1"):
-    return client.post("/api/admin/login", json={"password": password}, headers=ip(addr))
+def login(client, password: str, addr: str = "7.0.0.1", otp: str | None = None):
+    body = {"password": password}
+    if otp is not None:
+        body["otp"] = otp
+    return client.post("/api/admin/login", json=body, headers=ip(addr))
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -44,6 +49,28 @@ def test_correct_password_mints_a_token(client, admin_enabled):
     assert body["expires_in"] == config.ADMIN_TOKEN_TTL
 
 
+def test_mfa_rejects_a_missing_code_when_enabled(client, admin_enabled, monkeypatch):
+    secret = "JBSWY3DPEHPK3PXP"
+    monkeypatch.setattr(config, "ADMIN_TOTP_SECRET", secret)
+    monkeypatch.setattr(config, "ADMIN_MFA_ENABLED", True)
+
+    r = login(client, admin_enabled)
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "invalid one-time code"
+
+
+def test_mfa_accepts_a_current_authenticator_code(client, admin_enabled, monkeypatch):
+    secret = "JBSWY3DPEHPK3PXP"
+    monkeypatch.setattr(config, "ADMIN_TOTP_SECRET", secret)
+    monkeypatch.setattr(config, "ADMIN_MFA_ENABLED", True)
+    code = _totp_code(secret, int(time.time()) // 30)
+
+    r = login(client, admin_enabled, otp=code)
+
+    assert r.status_code == 200
+
+
 def test_wrong_password_is_rejected(client, admin_enabled):
     r = login(client, "wrong")
     assert r.status_code == 401
@@ -66,6 +93,16 @@ def test_login_requires_a_password_field(client, admin_enabled):
 def test_a_fresh_token_passes_verify(client, admin_enabled):
     token = login(client, admin_enabled).json()["token"]
     assert client.get("/api/admin/verify", headers=bearer(token)).status_code == 200
+
+
+def test_rotating_session_epoch_revokes_existing_tokens(client, admin_enabled, monkeypatch):
+    token = login(client, admin_enabled).json()["token"]
+    monkeypatch.setattr(config, "ADMIN_SESSION_EPOCH", "rotated")
+
+    r = client.get("/api/admin/verify", headers=bearer(token))
+
+    assert r.status_code == 401
+    assert r.json()["detail"] == "invalid session token"
 
 
 @pytest.mark.parametrize(
