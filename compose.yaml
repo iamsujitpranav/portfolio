@@ -66,18 +66,18 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:61991}
-        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
-        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
-        NEXT_PUBLIC_AVATAR_URL: ${NEXT_PUBLIC_AVATAR_URL:-}
-        NEXT_PUBLIC_ANIMATIONS_URL: ${NEXT_PUBLIC_ANIMATIONS_URL:-}
-        NEXT_PUBLIC_AVATAR_FALLBACK: ${NEXT_PUBLIC_AVATAR_FALLBACK:-}
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
     init: true
     environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
       BACKEND_URL: http://backend:8000
+    volumes:
+      - ./src:/app/src
+      - ./content:/app/content
+      - ./public:/app/public
+      - ./next.config.mjs:/app/next.config.mjs
     depends_on:
       backend:
         condition: service_healthy
@@ -89,10 +89,10 @@ services:
           "-e",
           "fetch(\"http://127.0.0.1:61991/\").then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
         ]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 20s
+      start_period: 10s
     networks:
       - app
 
@@ -103,6 +103,10 @@ services:
     restart: unless-stopped
     init: true
     environment: *backend-environment
+    command: sh -c "python -c 'import asyncio; from app.db import init_db; asyncio.run(init_db())' && exec uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+    volumes:
+      - ./backend/app:/app/backend/app
+      - ./content:/app/content
     depends_on:
       db:
         condition: service_healthy
@@ -114,10 +118,10 @@ services:
           "-c",
           "import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:8000/api/health\", timeout=3)",
         ]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 10s
+      start_period: 5s
     networks:
       - app
       - database

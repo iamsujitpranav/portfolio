@@ -8,7 +8,6 @@ import Magnetic from "./Magnetic";
 import CountUp from "./CountUp";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import { profile, metrics } from "@content/resume";
-import { useRecruiterMode } from "./RecruiterMode";
 
 // WebGL must be client-only.
 const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
@@ -33,7 +32,6 @@ const LINES = [
 
 export default function Hero() {
   const reduce = useReducedMotion();
-  const { enabled: recruiterMode, toggle: toggleRecruiterMode } = useRecruiterMode();
   const [typed, setTyped] = useState("");
 
   useEffect(() => {
@@ -96,59 +94,40 @@ export default function Hero() {
 
         <div className="typedline" aria-live="polite">
           <span className="lead">{"> "}</span>
-          {recruiterMode ? "Engineering leadership · AI platforms" : reduce ? ROLES[0] : typed}
+          {reduce ? ROLES[0] : typed}
           <span className="cursor" />
         </div>
 
         <Reveal delay={0.05}>
-          {recruiterMode ? (
-            <p className="lede recruiterLead">
-              Engineering leader with {profile.yearsExperience}+ years building dependable SaaS platforms and
-              {" "}{profile.yearsAI}+ years shipping AI systems in production. Strongest at turning ambiguous product
-              problems into architecture, delivery plans, and teams that execute.
-            </p>
-          ) : (
-            <p className="lede">
-              I build <b>scalable SaaS platforms</b> and modernize applications across both monoliths and microservices — and for the
-              last <b>{profile.yearsAI}+ years</b>, I&apos;ve shipped <b>AI-native systems</b>: LLM integrations,
-              RAG, agentic workflows with MCP, semantic search, and recommendation engines in production.
-            </p>
-          )}
+          <p className="lede">
+            I build <b>scalable SaaS platforms</b> and modernize applications across both monoliths and microservices — and for the
+            last <b>{profile.yearsAI}+ years</b>, I&apos;ve shipped <b>AI-native systems</b>: LLM integrations,
+            RAG, agentic workflows with MCP, semantic search, and recommendation engines in production.
+          </p>
         </Reveal>
 
         <Reveal delay={0.1}>
           <div className="cta-row">
             <Magnetic strength={0.35}>
-              <a className="btn primary" href={recruiterMode ? `mailto:${profile.email}` : "#ask"} data-cursor>
-                {recruiterMode ? "Discuss a role →" : "◈ Ask my résumé anything"}
+              <a className="btn primary" href="#ask" data-cursor>
+                ◈ Ask my résumé anything
               </a>
             </Magnetic>
             <Magnetic strength={0.35}>
-              <a className="btn" href={recruiterMode ? "#contact" : "#work"} data-cursor>
-                {recruiterMode ? "Start a conversation →" : "View experience →"}
+              <a className="btn" href="#work" data-cursor>
+                View experience →
               </a>
             </Magnetic>
             <Magnetic strength={0.35}>
-              {recruiterMode ? (
-                <button className="btn" type="button" onClick={() => window.print()} data-cursor>
-                  Print / save brief
-                </button>
-              ) : (
-                <a className="btn" href={`mailto:${profile.email}`} data-cursor>Get in touch</a>
-              )}
+              <a className="btn" href="/resume.pdf" download="Sujit-Pranav-Reddy-Resume.pdf" data-cursor>
+                Download résumé
+              </a>
             </Magnetic>
-            {recruiterMode && (
-              <Magnetic strength={0.35}>
-                <a className="btn" href="/resume.pdf" download="Sujit-Pranav-Reddy-Resume.pdf" data-cursor>
-                  Download résumé
-                </a>
-              </Magnetic>
-            )}
-            {recruiterMode && (
-              <button className="modeExit" type="button" onClick={toggleRecruiterMode} data-cursor>
-                Exit recruiter view
-              </button>
-            )}
+            <Magnetic strength={0.35}>
+              <a className="btn" href={`mailto:${profile.email}`} data-cursor>
+                Get in touch
+              </a>
+            </Magnetic>
           </div>
         </Reveal>
 

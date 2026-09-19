@@ -3,15 +3,15 @@
     "name": "Sujit Pranav Reddy",
     "title": "Engineering Head",
     "yearsExperience": 12,
-    "yearsAI": 3,
+    "yearsAI": 4,
     "location": "Hyderabad, India",
     "email": "contact@sujitpranavreddy.dev",
     "website": "https://www.sujitpranavreddy.dev",
     "linkedin": "https://www.linkedin.com/in/sujitpranav",
     "github": "https://github.com/iamsujitpranav",
-    "phone": "+91 91337 95317",
-    "summary": "Engineering Head with 12+ years building scalable SaaS platforms, modernizing large-scale monoliths, integrating microservices, and engineering high-availability systems. Ruby on Rails developer with 3+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP). Track record leading architecture, sprint planning, code review, and mentoring across cross-functional teams, with DevOps delivery on AWS, Docker, Kubernetes, and CI/CD pipelines.",
-    "openTo": "Engineering leadership & AI-platform roles (remote-friendly).",
+    "phone": "+91 7989393646",
+    "summary": "Engineering Head with 12+ years building scalable SaaS platforms, modernizing large-scale monoliths, integrating microservices, and engineering high-availability systems. Ruby on Rails developer with 4+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP). Track record leading architecture, sprint planning, code review, and mentoring across cross-functional teams, with DevOps delivery on AWS, Docker, Kubernetes, and CI/CD pipelines.",
+    "openTo": "Open to Engineering leadership & AI-platform roles.",
     "education": "B.Tech, Jawaharlal Nehru Technological University, Hyderabad (2008-2012).",
     "languages": ["English", "Telugu", "Hindi", "Kannada", "Tamil"],
     "dateOfBirth": "6th February 1991",
@@ -20,11 +20,11 @@
   },
   "metrics": [
     { "value": "12+", "label": "years engineering" },
-    { "value": "3+", "label": "years AI / ML in prod" },
+    { "value": "4+", "label": "years AI / ML in prod" },
     { "value": "2×", "label": "release velocity" },
     { "value": "40%↓", "label": "incident response time" },
     { "value": "80%↓", "label": "maintenance costs" },
-    { "value": "4+", "label": "years as Engineering Lead" }
+    { "value": "6+", "label": "years as Engineering Lead" }
   ],
   "experience": [
     {
@@ -35,12 +35,12 @@
       "summary": "Independent, part-time engagement. Leading engineering across three products - the AI recruitment platform, the AI services layer behind it, and the company's public web presence - architecture, delivery, and code review throughout. Works Claude MCP and Codex MCP into the development loop as repository-scale assistants, validating their output with scripts, tests, builds, and deployment checks.",
       "projects": [
         {
-          "name": "AI résumé parsing & candidate intelligence",
-          "summary": "Designed an AI-powered résumé-parsing & candidate-intelligence platform - NLP skill extraction, ranking, and semantic matching. Built LLM recruitment workflows with RAG, vector search, prompt engineering, and structured outputs, plus document pipelines with OCR, embeddings, and semantic search."
+          "name": "Candidate Intelligence & Semantic Search Platform",
+          "summary": "Architected an end-to-end recruitment intelligence system featuring vector-based candidate matching, automated scoring, and RAG-driven talent discovery. Implemented hybrid search pipelines combining full-text filtering with pgvector similarity to rank candidates against complex job specifications. Built end-to-end hiring workflows that transform unstructured applicant records into structured profiles, delivering real-time candidate insights, skill gap analysis, and automated recommendation pipelines across the ATS."
         },
         {
-          "name": "ARCCAA AI Engine - AI services platform",
-          "summary": "Built from scratch as a modular FastAPI platform for résumé parsing, job-description generation, skill suggestions, embeddings, similarity scoring, and caching - deployed as its own container, independent of Rails. Routes local Ollama models and OpenAI-compatible APIs from one place, defaulting to local embeddings so vectors stay compatible with the Rails pgvector schema, with selected generation tasks sent to hosted models where quality justifies it. A centralized prompt registry holds per-task instructions, JSON schemas, token limits, temperature, and model config, with résumé rules that keep employers, clients, and technologies distinct, separate job titles from responsibilities, preserve every meaningful responsibility, and forbid guessing. Hardened against unreliable model output with code-fence stripping, response normalization, heuristic fallbacks, versioned Redis and in-memory cache namespaces, latency logging, PDF/DOC/DOCX extraction, and parser tests."
+          "name": "ARCCAA AI Engine - Distributed AI Microservice",
+          "summary": "Engineered a high-throughput, containerized FastAPI service decoupling AI workloads from the core Rails application. Built a hybrid model routing gateway that dynamically dispatches tasks between local Ollama instances (preserving local 768-dim embeddings for PostgreSQL/pgvector consistency) and hosted OpenAI-compatible APIs for complex reasoning. Designed a centralized prompt registry with strict JSON schema enforcement, deterministic token/temperature configurations, code-fence sanitization, versioned multi-tier Redis caching, and heuristic fallback parsers for resilient document processing."
         },
         {
           "name": "AAITS website & CMS",
@@ -50,8 +50,8 @@
       "stack": ["Python", "FastAPI", "Next.js 16", "Payload CMS", "pgvector", "Anthropic Claude", "MCP", "RAG", "Ollama", "Redis", "PostgreSQL", "Docker"]
     },
     {
-      "role": "IT Head Consultant",
-      "company": "Aron Fx",
+      "role": "IT Consultant",
+      "company": "Magrofy",
       "period": "Apr 2026 - present",
       "now": true,
       "summary": "Independent, part-time engagement. Two products built end to end, schema through UI.",
@@ -62,7 +62,7 @@
         },
         {
           "name": "Magrofy Social Engine",
-          "summary": "A multi-brand agentic content platform on Claude - Scout, Strategist, Writer, Guardian, Repurposer, and Publisher stages with structured JSON outputs, risk tiering, human approval gates, encrypted credentials, idempotent scheduled runs, and a global kill switch."
+          "summary": "SiteCast is a multi-brand agentic content platform for the Magrofy website network. A run moves through Scout, Strategist, Writer, Illustrator, Guardian, Repurposer and Publisher stages with structured JSON outputs, risk tiering, and human approval gates at every exit — an operator picks a site, the model drafts the article and a hero image, a person approves it, and SiteCast publishes to that site's own API and promotes it from that site's own X account. Every website is a Publishing Channel — endpoint, auth type, encrypted credential and a JSON payload template — so adding a site is configuration, not code. Seven are wired up today. Nothing ships unattended: credentials are verified before every publish, scheduled runs are idempotent, and a global kill switch blocks all publishing."
         }
       ],
       "stack": ["Python", "FastAPI", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]

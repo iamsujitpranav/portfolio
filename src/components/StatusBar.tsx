@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toggleTheme } from "@/lib/theme";
 import { useTheme } from "@/lib/useTheme";
-import { RecruiterModeToggle } from "./RecruiterMode";
 import Soundtrack from "./Soundtrack";
 
 const SECTIONS = [
@@ -61,7 +60,6 @@ export default function StatusBar() {
             ✎ blog
           </Link>
         </nav>
-        {isHome && <RecruiterModeToggle />}
         <button
           className="iconbtn"
           onClick={() => toggleTheme()}

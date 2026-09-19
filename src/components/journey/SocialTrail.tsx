@@ -22,7 +22,7 @@ const SOCIALS: { kind: SocialKind; label: string; value: string; href: string }[
   {
     kind: "whatsapp",
     label: "WhatsApp",
-    value: "+91 9133795317",
+    value: "+91 7989393646",
     href: `https://wa.me/${profile.phone.replace(/[^0-9]/g, "")}`,
   },
   {
