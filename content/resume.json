@@ -3,14 +3,14 @@
     "name": "Sujit Pranav Reddy",
     "title": "Engineering Head",
     "yearsExperience": 12,
-    "yearsAI": 4,
+    "yearsAI": 5,
     "location": "Hyderabad, India",
     "email": "contact@sujitpranavreddy.dev",
     "website": "https://www.sujitpranavreddy.dev",
     "linkedin": "https://www.linkedin.com/in/sujitpranav",
     "github": "https://github.com/iamsujitpranav",
     "phone": "+91 7989393646",
-    "summary": "Engineering Head with 12+ years building scalable SaaS platforms, modernizing large-scale monoliths, integrating microservices, and engineering high-availability systems. Ruby on Rails developer with 4+ years hands-on delivering AI-powered applications using Python, FastAPI, TensorFlow, and PyTorch for intelligent search, recommendation systems, document processing, LLM integrations, and automation. Experienced building agentic workflows with Claude MCP, Codex MCP, OpenAI APIs, Anthropic Claude, and the Model Context Protocol (MCP). Track record leading architecture, sprint planning, code review, and mentoring across cross-functional teams, with DevOps delivery on AWS, Docker, Kubernetes, and CI/CD pipelines.",
+    "summary": "Engineering leader with 12+ years building and modernizing production SaaS platforms in Ruby on Rails and Python (Django, FastAPI), including 6+ years leading engineering teams. Specializes in making legacy systems easier to change and run: consolidated multiple codebases into one platform (80% lower maintenance costs), broke up monoliths, and put CI/CD and monitoring in place that doubled release velocity and cut incident response time by 40%. Has shipped AI/ML to production for 5+ years, from a PyTorch recommendation engine at Emami Frankross and TensorFlow predictive models at Inmar to, most recently, LLM resume parsing and hybrid semantic search for an AI recruitment platform and a multi-agent content pipeline at Magrofy. Deploys on AWS, Docker, Kubernetes, and GitHub Actions, and works with Claude and Codex as daily coding assistants, holding their output to the same code review and CI checks as any other change.",
     "openTo": "Open to Engineering Leadership | AI/ML Platforms | Full-stack Development | SaaS Architecture | LLM Integrations",
     "education": "B.Tech, Jawaharlal Nehru Technological University, Hyderabad (2008-2012).",
     "languages": ["English", "Telugu", "Hindi", "Kannada", "Tamil"],
@@ -20,11 +20,37 @@
   },
   "metrics": [
     { "value": "12+", "label": "years engineering" },
-    { "value": "4+", "label": "years AI / ML in prod" },
+    { "value": "5+", "label": "years AI / ML in prod" },
     { "value": "2×", "label": "release velocity" },
     { "value": "40%↓", "label": "incident response time" },
     { "value": "80%↓", "label": "maintenance costs" },
     { "value": "6+", "label": "years as Engineering Lead" }
+  ],
+  "highlights": [
+    {
+      "title": "Technical direction",
+      "text": "Sets architecture for whole products and makes the hard calls: what to build, what to buy, and what to simplify."
+    },
+    {
+      "title": "Ownership",
+      "text": "Owns delivery end to end, from planning and estimation to releases, production, and the quality bar every change has to clear."
+    },
+    {
+      "title": "Agile delivery",
+      "text": "Runs sprint planning, estimation, and roadmap alignment, keeping engineering priorities tied to what the business needs."
+    },
+    {
+      "title": "Mentoring",
+      "text": "Grows engineers through code review and pair programming."
+    },
+    {
+      "title": "Cross-functional coordination",
+      "text": "Coordinates work across cross-functional teams and multiple enterprise clients."
+    },
+    {
+      "title": "AI-driven engineering",
+      "text": "Runs Claude, Codex, Gemini, Jules, and Antigravity like a parallel engineering team: each agent works its own branch, and nothing merges without review and the same CI gates as human code. That is how one engineer took Arccaa's ATS from first commit to v1.0 in four months, backed by 1,600+ automated tests."
+    }
   ],
   "experience": [
     {
@@ -32,22 +58,22 @@
       "company": "Arccaa Analysis & IT Solutions",
       "period": "Oct 2025 - present",
       "now": true,
-      "summary": "Independent, part-time engagement. Leading engineering across three products - the AI recruitment platform, the AI services layer behind it, and the company's public web presence - architecture, delivery, and code review throughout. Works Claude MCP and Codex MCP into the development loop as repository-scale assistants, validating their output with scripts, tests, builds, and deployment checks.",
+      "summary": "Independent, part-time. Built and run engineering for Arccaa’s recruitment platform and the AI service behind it, plus the company website. Owns the architecture, the code, the releases, and the VPS they run on. Uses Claude and Codex through MCP as coding assistants; their changes go through the same RSpec, Vitest, lint, and security checks in CI as anyone’s.",
       "projects": [
         {
-          "name": "Candidate Intelligence & Semantic Search Platform",
-          "summary": "Architected an end-to-end recruitment intelligence system featuring vector-based candidate matching, automated scoring, and RAG-driven talent discovery. Implemented hybrid search pipelines combining full-text filtering with pgvector similarity to rank candidates against complex job specifications. Built end-to-end hiring workflows that transform unstructured applicant records into structured profiles, delivering real-time candidate insights, skill gap analysis, and automated recommendation pipelines across the ATS."
+          "name": "Arccaa Prime - recruitment platform (ATS)",
+          "summary": "A multi-tenant ATS on Rails 8 and React 19, built from the first commit: jobs, hiring pipelines with a Kanban board, interviews synced to Google and Outlook calendars, a candidate portal, and a public jobs board. Each company’s data is walled off with Postgres row-level security. Resumes come in by upload, bulk upload, or email and are parsed into structured profiles in the background. Recruiter search blends BM25 keyword ranking with pgvector similarity using reciprocal rank fusion, falls back to keywords if the embedding model is down, and supports full Boolean queries. Every candidate gets a match score from weighted skill coverage and semantic similarity, and recruiters see the breakdown and the missing skills. 1,600+ automated tests."
         },
         {
-          "name": "ARCCAA AI Engine - Distributed AI Microservice",
-          "summary": "Engineered a high-throughput, containerized FastAPI service decoupling AI workloads from the core Rails application. Built a hybrid model routing gateway that dynamically dispatches tasks between local Ollama instances (preserving local 768-dim embeddings for PostgreSQL/pgvector consistency) and hosted OpenAI-compatible APIs for complex reasoning. Designed a centralized prompt registry with strict JSON schema enforcement, deterministic token/temperature configurations, code-fence sanitization, versioned multi-tier Redis caching, and heuristic fallback parsers for resilient document processing."
+          "name": "ARCCAA AI Engine",
+          "summary": "Moved the LLM work out of Rails into its own FastAPI service. It parses PDF and Word resumes into structured profiles in a single model call, drafts job descriptions and must-have skills from a title and a few inputs, and writes candidate fit summaries and interview questions from the match data Rails sends. Each task can run on a local Ollama model or any OpenAI-compatible API through config; production uses a hosted model for generation and keeps embeddings on a local 768-dim model so every vector in pgvector stays comparable. Model output is cleaned of code fences, repaired by fallback parsers when the JSON is broken, and if that still fails a rule-based parser returns a usable result instead of an error."
         },
         {
           "name": "AAITS website & CMS",
-          "summary": "Built the company website and CMS from scratch on Next.js 16, React 19, TypeScript, Payload CMS 3, PostgreSQL, Tailwind, and shadcn/ui behind Docker and Caddy - dynamic pages, reusable content blocks, blog posts, categories and tags, media, navigation, forms and submissions, redirects, SEO metadata, previews, and search. Replaced the legacy WordPress site without losing it: archived the original HTML, media, taxonomies, metadata, and redirects, then wrote idempotent importers that convert content to Lexical rich text, preserve internal links, match media, rebuild taxonomies and redirects, and refuse duplicates - public content, URLs, and SEO value carried over intact. Added admin TOTP/2FA, search indexing, cache invalidation, automated tests, and deployment workflows."
+          "summary": "Replaced the company’s WordPress site with Next.js 16 and Payload CMS 3 on Postgres, self-hosted with Docker and Caddy. Wrote a re-runnable import that brought it all into Payload with categories, navigation, SEO fields, and a redirect for every old URL, so no existing link broke. Editors build pages from reusable blocks with drafts, previews, forms, and search; admins sign in with 2FA."
         }
       ],
-      "stack": ["Python", "FastAPI", "Next.js 16", "Payload CMS", "pgvector", "Anthropic Claude", "MCP", "RAG", "Ollama", "Redis", "PostgreSQL", "Docker"]
+      "stack": ["Ruby on Rails 8", "React 19", "TypeScript", "Python", "FastAPI", "PostgreSQL", "pgvector", "Sidekiq", "Redis", "Ollama", "OpenAI API", "Next.js 16", "Payload CMS", "RSpec", "Vitest", "Docker", "Caddy"]
     },
     {
       "role": "IT Consultant",
@@ -65,14 +91,14 @@
           "summary": "SiteCast is a multi-brand agentic content platform for the Magrofy website network. A run moves through Scout, Strategist, Writer, Illustrator, Guardian, Repurposer and Publisher stages with structured JSON outputs, risk tiering, and human approval gates at every exit — an operator picks a site, the model drafts the article and a hero image, a person approves it, and SiteCast publishes to that site's own API and promotes it from that site's own X account. Every website is a Publishing Channel — endpoint, auth type, encrypted credential and a JSON payload template — so adding a site is configuration, not code. Seven are wired up today. Nothing ships unattended: credentials are verified before every publish, scheduled runs are idempotent, and a global kill switch blocks all publishing."
         }
       ],
-      "stack": ["Python", "FastAPI", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]
+      "stack": ["Python", "FastAPI", "Django", "SQLAlchemy", "PostgreSQL", "Celery", "Redis", "Next.js", "Tailwind", "JWT / RBAC", "Anthropic Claude"]
     },
     {
       "role": "Lead Architect",
       "company": "Aequor Information Technologies / Virtusa",
       "period": "Nov 2024 - Apr 2025",
       "summary": "Led development on Storable Edge, an all-in-one self-storage operations platform. Drove sprint planning, effort estimation, and roadmap alignment; performed code reviews, pair programming, and mentoring. Contributed to microservice integrations, API design, and performance tuning; used Claude MCP for agentic development and improved deployments with Docker, GitHub Actions, and Jenkins.",
-      "stack": ["Rails 7", "Python", "Ruby 3.2", "GraphQL", "Sidekiq", "AWS", "Docker", "Grafana"]
+      "stack": ["FastAPI", "Rails 7", "Python", "Ruby 3.2", "GraphQL", "Sidekiq", "AWS", "Docker", "Grafana"]
     },
     {
       "role": "Senior Architect",
@@ -86,28 +112,28 @@
       "company": "Inmar Intelligence - Collective Bias",
       "period": "Feb 2022 - Sep 2022",
       "summary": "Designed predictive-analytics models with Python and TensorFlow to estimate influencer engagement, reach, and campaign ROI. Built budget-optimization algorithms on historical + costing data, contributed to architecture and sprint planning, and streamlined microservice deployment with existing Kubernetes pods and Docker images.",
-      "stack": ["Rails 5.2", "TensorFlow", "Python", "Kubernetes", "GraphQL"]
+      "stack": ["Django", "TensorFlow", "Python", "Kubernetes", "GraphQL",  "React", "Tailwind", "PostgreSQL", "Redis", "Celery"]
     },
     {
       "role": "Associate Consultant",
       "company": "Global Logic",
       "period": "May 2021 - Feb 2022",
       "summary": "Designed architecture for new enterprise HR features used by high-volume global clients. Led sprint planning across cross-functional teams and improved CI/CD via Jenkins + AWS, reducing deployment failures. Supported multi-client delivery for Workday, SuccessFactors, Marriott, and J&J.",
-      "stack": ["Ruby 3.0", "MySQL", "Redis", "Sidekiq", "AWS", "Kubernetes", "Jenkins"]
+      "stack": ["Django", "React", "Tailwind", "MySQL", "Redis", "AWS", "Kubernetes", "Jenkins", "Celery"]
     },
     {
       "role": "Senior RoR Developer / Associate Tech Lead",
       "company": "SunRay Construction Solutions",
       "period": "Oct 2019 - Apr 2021",
-      "summary": "Designed architecture for critical new features, optimized queries, and improved search with ElasticSearch & Kibana. Raised overall performance >10% and built a complete DevOps pipeline (Docker + GitHub Actions + AWS) enabling zero-downtime deployments.",
-      "stack": ["Rails 5.0", "React", "ElasticSearch", "Kibana", "AWS", "MySQL"]
+      "summary": "Designed architecture for critical new features, optimized queries, and improved search with Elasticsearch & Kibana. Raised overall performance >10% and built a complete DevOps pipeline (Docker + GitHub Actions + AWS) enabling zero-downtime deployments.",
+      "stack": ["Rails 5.0", "React", "Elasticsearch", "Kibana", "AWS", "MySQL"]
     },
     {
       "role": "Project Lead / Application Architect",
       "company": "Denken Solutions - Auto Refund Claims",
       "period": "May 2018 - Sep 2019",
       "summary": "Architected and developed the platform end-to-end - design, DB schema, APIs, auth, workflows. Built CI/CD with Jenkins on AWS, introduced Docker-based environments, and implemented CloudWatch-driven alerting to improve uptime.",
-      "stack": ["Rails 5.2", "PostgreSQL", "Redis", "ElasticSearch", "AWS", "Docker", "Jenkins"]
+      "stack": ["Rails 5.2", "PostgreSQL", "Redis", "Elasticsearch", "AWS", "Docker", "Jenkins"]
     },
     {
       "role": "Software Engineer",
@@ -138,13 +164,24 @@
       "stack": ["Ruby on Rails", "CMS"]
     }
   ],
+  "sideProjects": [
+    {
+      "name": "AI résumé assistant (sujitpranavreddy.dev)",
+      "summary": "A chat assistant on my portfolio that answers recruiters' questions using RAG: the résumé and blog posts are chunked by role, project, and skill, embedded into pgvector, and the five closest chunks ground Claude's answer. Career-order questions also get the full timeline, and if retrieval fails it falls back to the whole résumé.",
+      "stack": ["Python", "FastAPI", "PostgreSQL", "pgvector", "Voyage AI embeddings", "Anthropic Claude", "Next.js"]
+    }
+  ],
   "skillGroups": [
-    { "title": "Full-stack", "star": ["Ruby on Rails", "Python"], "skills": ["Golang", "FastAPI", "SQLAlchemy", "Alembic", "Celery", "GraphQL", "REST", "Microservices", "Hotwire", "React", "Next.js", "Tailwind", "RSpec"] },
-    { "title": "AI & ML", "star": ["Anthropic Claude", "MCP", "TensorFlow", "Pytorch"], "skills": ["RAG", "LangChain", "OpenAI API", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Semantic search"] },
-    { "title": "Cloud & DevOps", "star": ["AWS", "Kubernetes", "Docker", "GitHub Actions"], "skills": [ "Jenkins", "Nginx", "Capistrano"] },
-    { "title": "Data & Storage", "star": ["PostgreSQL"], "skills": ["pgvector", "MySQL", "Redis", "ElasticSearch", "Algolia"] },
+    { "title": "Languages", "star": ["Ruby", "Python", "TypeScript"], "skills": ["JavaScript", "SQL", "Golang"] },
+    { "title": "Backend & APIs", "star": ["Ruby on Rails", "Django", "FastAPI"], "skills": ["REST APIs", "GraphQL", "Microservices", "Multi-tenant SaaS", "SQLAlchemy", "Alembic", "Sidekiq", "Celery", "Rails Engines"] },
+    { "title": "Frontend", "star": ["React", "Next.js"], "skills": ["Hotwire", "Tailwind CSS", "Payload CMS"] },
+    { "title": "AI & ML", "star": ["LLM integration", "RAG", "AI agents", "PyTorch", "TensorFlow"], "skills": ["Generative AI", "LangGraph", "LangChain", "OpenAI API", "Anthropic Claude API", "Ollama", "Prompt engineering", "Structured outputs", "Multi-agent pipelines", "Embeddings", "Vector search", "Hybrid search", "Semantic search", "Recommendation systems", "Predictive analytics"] },
+    { "title": "Cloud & DevOps", "star": ["AWS", "Docker", "Kubernetes", "GitHub Actions"], "skills": ["CI/CD", "Jenkins", "Nginx", "Caddy", "Capistrano", "Zero-downtime deployments"] },
+    { "title": "Data & Search", "star": ["PostgreSQL", "pgvector"], "skills": ["MySQL", "Redis", "Elasticsearch", "Algolia", "Row-level security", "Query optimization"] },
+    { "title": "Testing & Quality", "star": ["RSpec"], "skills": ["Vitest", "pytest", "Automated testing", "Code review"] },
     { "title": "Security & Auth", "star": ["RBAC"], "skills": ["JWT", "Refresh tokens", "TOTP 2FA", "Rate limiting", "Encryption", "Audit logging"] },
-    { "title": "Observability", "star": ["New Relic"], "skills": ["Grafana", "Kibana", "CloudWatch"] },
-    { "title": "Agentic tooling", "star": ["Claude MCP", "Codex MCP"], "skills": [ "Cursor", "Windsurf", "GitHub Copilot"] }
+    { "title": "Observability", "star": ["New Relic"], "skills": ["Grafana", "Kibana", "CloudWatch", "APM", "Alerting"] },
+    { "title": "AI coding tools", "star": ["Claude Code", "Codex"], "skills": ["MCP", "Gemini", "Jules", "Antigravity", "Cursor", "Windsurf", "GitHub Copilot"] },
+    { "title": "Leadership & Delivery", "star": ["Engineering leadership", "System design"], "skills": ["Software architecture", "Technical roadmap", "Agile / Scrum", "Sprint planning", "Estimation", "Mentoring", "Cross-functional collaboration"] }
   ]
 }

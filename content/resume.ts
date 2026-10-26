@@ -17,6 +17,10 @@ export type Job = {
   projects?: Project[];
   stack: string[];
 };
+/** A one-line proof point for the recruiter PDF's Leadership Highlights. */
+export type Highlight = { title: string; text: string };
+/** Personal work outside any employer, listed under Projects. */
+export type SideProject = { name: string; summary: string; stack: string[] };
 export type SkillGroup = { title: string; skills: string[]; star?: string[] };
 export type Profile = {
   name: string;
@@ -40,5 +44,7 @@ export type Profile = {
 
 export const profile = data.profile as Profile;
 export const metrics = data.metrics as Metric[];
+export const highlights = data.highlights as Highlight[];
 export const experience = data.experience as Job[];
+export const sideProjects = data.sideProjects as SideProject[];
 export const skillGroups = data.skillGroups as SkillGroup[];

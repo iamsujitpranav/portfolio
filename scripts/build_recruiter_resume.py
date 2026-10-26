@@ -121,6 +121,8 @@ def build() -> None:
     profile = data["profile"]
     experience = data["experience"]
     skills = data["skillGroups"]
+    highlights = data["highlights"]
+    side_projects = data.get("sideProjects", [])
 
     styles = getSampleStyleSheet()
     name = ParagraphStyle(
@@ -151,6 +153,7 @@ def build() -> None:
         "Body", parent=styles["BodyText"], fontName="Helvetica", fontSize=8.8,
         leading=12.2, textColor=MUTED, spaceAfter=4,
     )
+    skill_line = ParagraphStyle("SkillLine", parent=body, spaceAfter=2)
     bullet = ParagraphStyle(
         "Bullet", parent=body, leftIndent=10, bulletIndent=2, spaceAfter=3,
     )
@@ -172,6 +175,15 @@ def build() -> None:
         linked(profile["linkedin"], handle(profile["linkedin"]), "linkedin"),
         linked(profile["github"], handle(profile["github"]), "github"),
     ])
+    # Skills sit on page one, straight after the summary: recruiters and ATS
+    # keyword matching both weight the first page most heavily.
+    groups = [
+        Paragraph(
+            f"<b>{esc(group['title'])}:</b> {esc(', '.join(list(group.get('star', [])) + list(group['skills'])))}",
+            skill_line,
+        )
+        for group in skills
+    ]
     story: list[object] = [
         Paragraph(esc(profile["name"]), name),
         Paragraph(esc(profile["title"]), title),
@@ -182,11 +194,21 @@ def build() -> None:
             *heading("PROFESSIONAL SUMMARY", "summary"),
             Paragraph(esc(profile["summary"]), body),
         ]),
-        *heading("PROFESSIONAL EXPERIENCE", "experience"),
+        KeepTogether([*heading("TECHNICAL SKILLS", "skills"), *groups]),
+        KeepTogether([
+            *heading("LEADERSHIP HIGHLIGHTS", "leadership"),
+            *(
+                Paragraph(f"<bullet>&bull;</bullet><b>{esc(item['title'])}:</b> {esc(item['text'])}", bullet)
+                for item in highlights
+            ),
+        ]),
     ]
 
-    for job in experience:
+    for index, job in enumerate(experience):
+        # The section heading travels with the first job so it never strands
+        # at the foot of a page.
         block: list[object] = [
+            *(heading("PROFESSIONAL EXPERIENCE", "experience") if index == 0 else []),
             Paragraph(esc(job["role"]), role),
             Paragraph(esc(job["company"]) + " | " + period_text(job["period"]), meta),
             Paragraph(esc(job["summary"]), body),
@@ -200,24 +222,20 @@ def build() -> None:
         ))
         story.append(KeepTogether(block))
 
-    groups = [
-        Paragraph(
-            f"<b>{esc(group['title'])}:</b> {esc(', '.join(list(group.get('star', [])) + list(group['skills'])))}",
-            body,
-        )
-        for group in skills
-    ]
-    story.append(KeepTogether([*heading("TECHNICAL SKILLS", "skills"), groups[0]]))
-    story.extend(groups[1:])
+    if side_projects:
+        story.append(KeepTogether([
+            *heading("PROJECTS", "github"),
+            *(
+                item_block
+                for item in side_projects
+                for item_block in (
+                    Paragraph(f"<bullet>&bull;</bullet><b>{esc(item['name'])}:</b> {esc(item['summary'])}", bullet),
+                    Paragraph("<b>Technologies:</b> " + ", ".join(esc(s) for s in item["stack"]), meta),
+                )
+            ),
+        ]))
 
     story.extend([
-        KeepTogether([
-            *heading("LEADERSHIP FOCUS", "leadership"),
-            Paragraph(
-                "Architecture direction, delivery planning, code review, mentoring, platform modernization, and building practical AI capabilities that can be operated in production.",
-                body,
-            ),
-        ]),
         KeepTogether([
             *heading("EDUCATION", "education"),
             Paragraph(esc(profile["education"]), body),
