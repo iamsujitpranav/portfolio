@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { adminLogin, adminLogout, adminToken } from "@/lib/admin";
 
 // The password wall in front of everything under /admin.
@@ -29,6 +29,8 @@ const subscribeNothing = () => () => {};
 const hasStoredToken = () => !!adminToken();
 const noTokenOnServer = () => false;
 
+const isDev = process.env.NODE_ENV !== "production";
+
 export default function AdminGate({
   title,
   children,
@@ -43,7 +45,26 @@ export default function AdminGate({
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showMfa, setShowMfa] = useState(false);
   const authed = signedIn ?? stored;
+
+  useEffect(() => {
+    // Authenticator is removed in development environment
+    if (isDev) return;
+
+    let active = true;
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((data) => {
+        if (active && data?.admin_mfa) {
+          setShowMfa(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const signOut = useCallback(() => {
     adminLogout();
@@ -85,18 +106,20 @@ export default function AdminGate({
               placeholder="••••••••••••"
             />
           </label>
-          <label className="admField">
-            <span>Authenticator code (if enabled)</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="123456"
-            />
-          </label>
+          {showMfa && (
+            <label className="admField">
+              <span>Authenticator code</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="one-time-code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+              />
+            </label>
+          )}
           {error && <p className="admError">{error}</p>}
           <button type="submit" className="admPrimary" disabled={busy || !password}>
             {busy ? "Signing in…" : "Sign in"}

@@ -109,9 +109,14 @@ else
   BACKUP_FILE="<none>"
 fi
 
+# Ensure writable runtime directories for versions and outputs
+mkdir -p content/resume_versions output/pdf/versions public
+chmod -R a+rwX content/resume_versions output public
+
 # --- Build + restart --------------------------------------------------------
 echo ">> Building and starting the stack"
 $COMPOSE up -d --build --remove-orphans
+
 # nginx caches the upstream IPs it resolved at start-up; a rebuilt frontend or
 # backend lands on a new container IP, and a stale cache is the classic
 # post-rebuild 502. Restarting the edge re-resolves them.

@@ -127,7 +127,11 @@ services:
     restart: unless-stopped
     init: true
     environment: *backend-environment
+    volumes:
+      - ./content/resume_versions:/app/content/resume_versions
+      - ./output:/app/output
     depends_on:
+
       db:
         condition: service_healthy
     healthcheck:

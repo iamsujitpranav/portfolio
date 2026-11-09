@@ -60,6 +60,8 @@ CONTACT_RATE_LIMIT = os.getenv("CONTACT_RATE_LIMIT", "3/600, 10/86400").strip()
 EVENTS_RATE_LIMIT = os.getenv("EVENTS_RATE_LIMIT", "60/60, 600/3600").strip()
 # Counts only failed admin logins — a success resets the caller's budget.
 LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5/900, 20/86400").strip()
+# Resume access & downloads rate limit (per IP)
+RESUME_RATE_LIMIT = os.getenv("RESUME_RATE_LIMIT", "30/60, 300/3600").strip()
 
 # Trust X-Real-IP / X-Forwarded-For for the caller identity. Correct behind the
 # documented nginx front end (deploy/nginx.conf); turn OFF if uvicorn is ever
@@ -111,6 +113,11 @@ ADMIN_SESSION_EPOCH = os.getenv("ADMIN_SESSION_EPOCH", "1").strip()
 # Automatic privacy cleanup. Set either value to 0 to disable that cleanup.
 LEAD_RETENTION_DAYS = max(0, int(os.getenv("LEAD_RETENTION_DAYS", "730")))
 ANALYTICS_RETENTION_DAYS = max(0, int(os.getenv("ANALYTICS_RETENTION_DAYS", "90")))
+RESUME_RETENTION_DAYS = max(0, int(os.getenv("RESUME_RETENTION_DAYS", "365")))
+
+# --- Resume tracking ---
+RESUME_TRACKING_ENABLED = _flag("RESUME_TRACKING_ENABLED", "1")
+RESUME_PDF_PATH = os.getenv("RESUME_PDF_PATH", "").strip()
 
 # --- Journey analytics ---
 # First-party only: no third-party script, no cookie, no IP stored. Off here

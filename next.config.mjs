@@ -22,12 +22,20 @@ const nextConfig = {
     // In dev (and if a request ever reaches Node in prod) Next proxies it to
     // FastAPI. In production, Nginx routes /api/* straight to uvicorn so this
     // rewrite is just a safety net.
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          source: "/resume.pdf",
+          destination: `${BACKEND_URL}/api/resume/download`,
+        },
+      ],
+      afterFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${BACKEND_URL}/api/:path*`,
+        },
+      ],
+    };
   },
 };
 

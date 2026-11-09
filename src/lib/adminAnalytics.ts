@@ -131,3 +131,74 @@ export function formatSeconds(total: number): string {
 export function share(part: number, whole: number): number {
   return whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0;
 }
+
+// --------------------------------------------------------------------------- //
+// Résumé Activity Tracking Types
+// --------------------------------------------------------------------------- //
+
+export type ResumeActivityItem = {
+  id: number;
+  action: string;
+  section?: string | null;
+  ip_address: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  org?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  user_agent?: string | null;
+  referer?: string | null;
+  created_at: string;
+};
+
+export type ResumeGeoCountry = {
+  country: string;
+  country_code: string;
+  count: number;
+};
+
+export type ResumeGeoCity = {
+  city: string;
+  country: string;
+  count: number;
+};
+
+export type ResumeOrg = {
+  org: string;
+  count: number;
+  unique_ips: number;
+};
+
+export type ResumeDayStat = {
+  day: string;
+  downloads: number;
+  views: number;
+  total: number;
+};
+
+export type ResumeActivityPayload = {
+  summary: {
+    total_downloads: number;
+    total_views: number;
+    unique_ips: number;
+    days: number;
+  };
+  recent: ResumeActivityItem[];
+  top_countries: ResumeGeoCountry[];
+  top_cities: ResumeGeoCity[];
+  top_orgs: ResumeOrg[];
+  by_day: ResumeDayStat[];
+};
+
+export function countryFlag(code?: string | null): string {
+  if (!code || code.length !== 2) return "🌐";
+  try {
+    const upper = code.toUpperCase();
+    const codePoints = [...upper].map((c) => 127397 + c.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  } catch {
+    return "🌐";
+  }
+}

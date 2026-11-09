@@ -75,6 +75,85 @@ export async function adminFetch<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function adminFetchPost<T>(path: string, body: unknown): Promise<T> {
+  const token = adminToken();
+  if (!token) throw new AdminAuthError("not signed in");
+
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    adminLogout();
+    throw new AdminAuthError(await detail(res));
+  }
+  if (!res.ok) throw new Error(await detail(res));
+  return (await res.json()) as T;
+}
+
+export async function adminFetchPut<T>(path: string, body: unknown): Promise<T> {
+  const token = adminToken();
+  if (!token) throw new AdminAuthError("not signed in");
+
+  const res = await fetch(path, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    adminLogout();
+    throw new AdminAuthError(await detail(res));
+  }
+  if (!res.ok) throw new Error(await detail(res));
+  return (await res.json()) as T;
+}
+
+export async function adminFetchDelete(path: string): Promise<void> {
+  const token = adminToken();
+  if (!token) throw new AdminAuthError("not signed in");
+
+  const res = await fetch(path, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    adminLogout();
+    throw new AdminAuthError(await detail(res));
+  }
+  if (!res.ok) throw new Error(await detail(res));
+}
+
+export async function adminDownloadVersionResume(versionId: string, filename = "Sujit-Pranav-Reddy-Resume.pdf"): Promise<void> {
+  const token = adminToken();
+  if (!token) throw new AdminAuthError("not signed in");
+
+  const res = await fetch(`/api/admin/resume/download/${encodeURIComponent(versionId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    adminLogout();
+    throw new AdminAuthError(await detail(res));
+  }
+  if (!res.ok) throw new Error(await detail(res));
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 /** FastAPI puts the human-readable reason in `detail`; fall back to the status. */
 async function detail(res: Response): Promise<string> {
   try {

@@ -51,3 +51,9 @@ __pycache__/
 # .glb files; these stay on disk for re-export via scripts/fbx_to_anim_glb.py
 # but are 96M of the repo, so they aren't tracked.
 *.fbx
+
+# Generated resume PDFs (cached)
+/output/pdf/versions/
+/output/pdf/SUJIT_PRANAV.pdf
+/output/pdf/Sujit_Pranav_Reddy.pdf
+

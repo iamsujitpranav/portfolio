@@ -94,6 +94,35 @@ class JourneyEvent(Base):
     )
 
 
+class ResumeActivity(Base):
+    """Activity tracking for the resume (views, section reads, and PDF downloads).
+
+    Captures access IP, resolved geographic location (city, region, country),
+    network organization/company (for recruiter identification), user agent,
+    action, and timestamp.
+    """
+
+    __tablename__ = "resume_activity"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(32), index=True)  # download_pdf, view_online, view_section, ask_chat
+    section: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # full_pdf, hero, experience, skills
+    ip_address: Mapped[str] = mapped_column(String(64), index=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    region: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    country_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    org: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    referer: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 # Lazily-created engine/session so the module imports cleanly without a DB.
 _engine = None
 _Session: Optional[async_sessionmaker[AsyncSession]] = None
@@ -132,6 +161,12 @@ async def init_db() -> None:
         await conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_leads_created_at ON leads (created_at)")
         )
+        await conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_resume_activity_created_at "
+                "ON resume_activity (created_at)"
+            )
+        )
         now = datetime.now(timezone.utc)
         if config.LEAD_RETENTION_DAYS:
             await conn.execute(
@@ -144,5 +179,12 @@ async def init_db() -> None:
                 delete(JourneyEvent).where(
                     JourneyEvent.created_at
                     < now - timedelta(days=config.ANALYTICS_RETENTION_DAYS)
+                )
+            )
+        if config.RESUME_RETENTION_DAYS:
+            await conn.execute(
+                delete(ResumeActivity).where(
+                    ResumeActivity.created_at
+                    < now - timedelta(days=config.RESUME_RETENTION_DAYS)
                 )
             )

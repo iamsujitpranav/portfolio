@@ -107,6 +107,10 @@ services:
     volumes:
       - ./backend/app:/app/backend/app
       - ./content:/app/content
+      - ./scripts:/app/scripts
+      - ./output:/app/output
+      - ./public:/app/public
+
     depends_on:
       db:
         condition: service_healthy

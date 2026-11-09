@@ -17,11 +17,13 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from starlette.concurrency import run_in_threadpool
 
-from . import config, ratelimit
+from . import config, ratelimit, resume_versions
 from .db import Article, get_sessionmaker
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -301,3 +303,158 @@ async def admin_delete(slug: str, _: bool = Depends(require_admin)):
         await session.commit()
         logger.info("admin_article_deleted slug=%s", slug)
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Resume Versions & PDF Download (admin-only)
+# --------------------------------------------------------------------------- #
+class ProfileSchema(BaseModel):
+    name: str = Field(default="", max_length=200)
+    title: str = Field(default="", max_length=200)
+    yearsExperience: int = Field(default=0, ge=0, le=100)
+    yearsAI: int = Field(default=0, ge=0, le=100)
+    location: str = Field(default="", max_length=200)
+    email: str = Field(default="", max_length=200)
+    website: str = Field(default="", max_length=300)
+    linkedin: str = Field(default="", max_length=300)
+    github: str = Field(default="", max_length=300)
+    phone: str = Field(default="", max_length=50)
+    summary: str = Field(default="", max_length=10000)
+    openTo: str = Field(default="", max_length=1000)
+    education: str = Field(default="", max_length=2000)
+    languages: list[str] = Field(default_factory=list)
+    dateOfBirth: str = Field(default="", max_length=100)
+    hobbies: list[str] = Field(default_factory=list)
+    maritalStatus: str = Field(default="", max_length=100)
+
+
+class MetricSchema(BaseModel):
+    value: str = Field(default="", max_length=100)
+    label: str = Field(default="", max_length=200)
+
+
+class HighlightSchema(BaseModel):
+    title: str = Field(default="", max_length=300)
+    text: str = Field(default="", max_length=5000)
+
+
+class ProjectSchema(BaseModel):
+    name: str = Field(default="", max_length=300)
+    summary: str = Field(default="", max_length=5000)
+
+
+class JobSchema(BaseModel):
+    role: str = Field(default="", max_length=200)
+    company: str = Field(default="", max_length=200)
+    period: str = Field(default="", max_length=100)
+    now: Optional[bool] = False
+    summary: str = Field(default="", max_length=5000)
+    projects: Optional[list[ProjectSchema]] = Field(default_factory=list)
+    stack: list[str] = Field(default_factory=list)
+
+
+class SideProjectSchema(BaseModel):
+    name: str = Field(default="", max_length=300)
+    summary: str = Field(default="", max_length=5000)
+    stack: list[str] = Field(default_factory=list)
+
+
+class SkillGroupSchema(BaseModel):
+    title: str = Field(default="", max_length=200)
+    star: Optional[list[str]] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+
+
+class ResumeDataSchema(BaseModel):
+    profile: ProfileSchema
+    metrics: list[MetricSchema] = Field(default_factory=list)
+    highlights: list[HighlightSchema] = Field(default_factory=list)
+    experience: list[JobSchema] = Field(default_factory=list)
+    sideProjects: list[SideProjectSchema] = Field(default_factory=list)
+    skillGroups: list[SkillGroupSchema] = Field(default_factory=list)
+
+
+class VersionSummaryOut(BaseModel):
+    id: str
+    versionNumber: int
+    label: str
+    createdAt: str
+    updatedAt: str
+
+
+class VersionDetailOut(BaseModel):
+    id: str
+    versionNumber: int
+    label: str
+    createdAt: str
+    updatedAt: str
+    data: ResumeDataSchema
+
+
+class CreateVersionRequest(BaseModel):
+    sourceId: Optional[str] = None
+
+
+@router.get("/resume/versions", response_model=list[VersionSummaryOut])
+async def list_resume_versions(_: bool = Depends(require_admin)):
+    return resume_versions.list_versions()
+
+
+@router.post("/resume/versions", response_model=VersionDetailOut, status_code=201)
+async def create_resume_version(
+    body: CreateVersionRequest = CreateVersionRequest(),
+    _: bool = Depends(require_admin),
+):
+    return resume_versions.create_version(body.sourceId)
+
+
+@router.get("/resume/versions/{version_id}", response_model=VersionDetailOut)
+async def get_resume_version(version_id: str, _: bool = Depends(require_admin)):
+    v = resume_versions.get_version(version_id)
+    if v is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    return v
+
+
+@router.put("/resume/versions/{version_id}", response_model=VersionDetailOut)
+async def update_resume_version(
+    version_id: str,
+    body: ResumeDataSchema,
+    _: bool = Depends(require_admin),
+):
+    updated = resume_versions.update_version(version_id, body.model_dump())
+    if updated is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    return updated
+
+
+@router.delete("/resume/versions/{version_id}", status_code=204)
+async def delete_resume_version(version_id: str, _: bool = Depends(require_admin)):
+    try:
+        deleted = resume_versions.delete_version(version_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="version not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return None
+
+
+@router.get("/resume/download/{version_id}")
+async def download_resume_version(version_id: str, _: bool = Depends(require_admin)):
+    v = resume_versions.get_version(version_id)
+    if v is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    try:
+        pdf_path = await run_in_threadpool(resume_versions.build_version_pdf, version_id)
+    except Exception as e:
+        logger.exception("pdf_generation_failed version=%s", version_id)
+        raise HTTPException(status_code=500, detail=f"could not generate PDF: {e}")
+
+    safe_label = re.sub(r"[^a-zA-Z0-9_.-]", "_", v["label"])
+    filename = f"Sujit-Pranav-Reddy-Resume-{safe_label}.pdf"
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename=filename,
+    )
+

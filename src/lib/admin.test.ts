@@ -1,5 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { AdminAuthError, adminFetch, adminLogin, adminLogout, adminToken } from "./admin";
+import {
+  AdminAuthError,
+  adminDownloadVersionResume,
+  adminFetch,
+  adminFetchDelete,
+  adminFetchPost,
+  adminFetchPut,
+  adminLogin,
+  adminLogout,
+  adminToken,
+} from "./admin";
 
 const KEY = "sujit.admin.token";
 
@@ -100,5 +110,68 @@ describe("calling an admin endpoint", () => {
 
     await expect(adminFetch("/api/admin/analytics")).rejects.toThrow("database is not configured");
     expect(adminToken()).toBe("tok");
+  });
+
+  it("adminFetchPost sends body and Bearer token", async () => {
+    sessionStorage.setItem(KEY, "tok");
+    const fetchMock = vi.fn().mockResolvedValue(reply(201, { id: "v2" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await adminFetchPost<{ id: string }>("/api/admin/resume/versions", { sourceId: "v1" });
+    expect(res.id).toBe("v2");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/resume/versions");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+    expect(JSON.parse(init.body as string)).toEqual({ sourceId: "v1" });
+  });
+
+  it("adminFetchPut sends body and Bearer token", async () => {
+    sessionStorage.setItem(KEY, "tok");
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, { ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await adminFetchPut<{ ok: boolean }>("/api/admin/resume/versions/v1", { name: "test" });
+    expect(res.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/resume/versions/v1");
+    expect(init.method).toBe("PUT");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+    expect(JSON.parse(init.body as string)).toEqual({ name: "test" });
+  });
+
+  it("adminFetchDelete sends DELETE with Bearer token", async () => {
+    sessionStorage.setItem(KEY, "tok");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await adminFetchDelete("/api/admin/resume/versions/v2");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/admin/resume/versions/v2");
+    expect(init.method).toBe("DELETE");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+  });
+
+  it("adminDownloadVersionResume triggers browser download", async () => {
+    sessionStorage.setItem(KEY, "tok");
+    const fakeBlob = { size: 100 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => fakeBlob,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const createObjectURLMock = vi.fn().mockReturnValue("blob:fake-url");
+    const revokeObjectURLMock = vi.fn();
+    window.URL.createObjectURL = createObjectURLMock;
+    window.URL.revokeObjectURL = revokeObjectURLMock;
+
+    await adminDownloadVersionResume("v1", "test.pdf");
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/resume/download/v1", {
+      headers: { Authorization: "Bearer tok" },
+    });
+    expect(createObjectURLMock).toHaveBeenCalled();
+    expect(revokeObjectURLMock).toHaveBeenCalled();
   });
 });

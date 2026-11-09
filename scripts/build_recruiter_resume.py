@@ -98,8 +98,9 @@ def linked(url: str, label: str, logo: str) -> str:
 
 
 class ResumeDocTemplate(BaseDocTemplate):
-    def __init__(self, filename: str, **kwargs: object) -> None:
+    def __init__(self, filename: str, author_name: str = "Sujit Pranav Reddy", **kwargs: object) -> None:
         super().__init__(filename, **kwargs)
+        self.author_name = author_name
         frame = Frame(self.leftMargin, self.bottomMargin, self.width, self.height, id="normal")
         self.addPageTemplates([PageTemplate(id="resume", frames=frame, onPage=self.draw_page)])
 
@@ -111,17 +112,19 @@ class ResumeDocTemplate(BaseDocTemplate):
         canvas.line(doc.leftMargin, height - 15 * mm, width - doc.rightMargin, height - 15 * mm)
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(MUTED)
-        canvas.drawString(doc.leftMargin, 10 * mm, "Sujit Pranav Reddy")
+        author = getattr(doc, "author_name", "Sujit Pranav Reddy")
+        canvas.drawString(doc.leftMargin, 10 * mm, author)
         canvas.drawRightString(width - doc.rightMargin, 10 * mm, f"Page {doc.page}")
         canvas.restoreState()
 
 
-def build() -> None:
-    data = json.loads(SOURCE.read_text(encoding="utf-8"))
+def build(data: dict | None = None, output_path: Path | str | None = None) -> Path:
+    if data is None:
+        data = json.loads(SOURCE.read_text(encoding="utf-8"))
     profile = data["profile"]
-    experience = data["experience"]
-    skills = data["skillGroups"]
-    highlights = data["highlights"]
+    experience = data.get("experience", [])
+    skills = data.get("skillGroups", [])
+    highlights = data.get("highlights", [])
     side_projects = data.get("sideProjects", [])
 
     styles = getSampleStyleSheet()
@@ -252,15 +255,29 @@ def build() -> None:
         ]),
     ])
 
-    for output in OUTPUTS[:1]:
-        output.parent.mkdir(parents=True, exist_ok=True)
+    author_name = profile.get("name", "Sujit Pranav Reddy")
+    if output_path is not None:
+        target = Path(output_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
         doc = ResumeDocTemplate(
-            str(output), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
-            topMargin=18 * mm, bottomMargin=15 * mm, title="Sujit Pranav Reddy - Resume",
-            author="Sujit Pranav Reddy",
+            str(target), author_name=author_name, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
+            topMargin=18 * mm, bottomMargin=15 * mm, title=f"{author_name} - Resume",
+            author=author_name,
         )
         doc.build(story)
-        shutil.copyfile(output, OUTPUTS[1])
+        return target
+
+    # Default build (CLI / npm run resume): updates output/pdf and public/resume.pdf
+    default_output = OUTPUTS[0]
+    default_output.parent.mkdir(parents=True, exist_ok=True)
+    doc = ResumeDocTemplate(
+        str(default_output), author_name=author_name, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=18 * mm, bottomMargin=15 * mm, title=f"{author_name} - Resume",
+        author=author_name,
+    )
+    doc.build(story)
+    shutil.copyfile(default_output, OUTPUTS[1])
+    return default_output
 
 
 if __name__ == "__main__":

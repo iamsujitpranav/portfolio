@@ -13,10 +13,16 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/app ./backend/app
 COPY content ./content
+COPY scripts ./scripts
+COPY public ./public
 
-RUN addgroup --system --gid 1001 portfolio \
+
+RUN mkdir -p content/resume_versions output/pdf/versions public \
+    && addgroup --system --gid 1001 portfolio \
     && adduser --system --uid 1001 --ingroup portfolio --home /home/portfolio portfolio \
-    && chown -R portfolio:portfolio /app
+    && chown -R portfolio:portfolio /app \
+    && chmod -R a+rwX /app/content /app/output /app/public
+
 
 WORKDIR /app/backend
 USER portfolio

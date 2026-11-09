@@ -7,6 +7,7 @@ import Reveal from "./Reveal";
 import Magnetic from "./Magnetic";
 import CountUp from "./CountUp";
 import { useReducedMotion } from "@/lib/useReducedMotion";
+import { trackResumeActivity } from "@/lib/resumeTracker";
 import { profile, metrics } from "@content/resume";
 
 // WebGL must be client-only.
@@ -119,7 +120,13 @@ export default function Hero() {
               </a>
             </Magnetic>
             <Magnetic strength={0.35}>
-              <a className="btn" href="/resume.pdf" download="Sujit-Pranav-Reddy-Resume.pdf" data-cursor>
+              <a
+                className="btn"
+                href="/api/resume/download"
+                download="Sujit-Pranav-Reddy-Resume.pdf"
+                data-cursor
+                onClick={() => trackResumeActivity("download_click", "hero")}
+              >
                 Download résumé
               </a>
             </Magnetic>

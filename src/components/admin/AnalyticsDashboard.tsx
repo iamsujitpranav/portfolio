@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AdminAuthError, adminFetch } from "@/lib/admin";
 import { useAdminSession } from "./AdminGate";
 import {
@@ -123,8 +124,10 @@ export default function AnalyticsDashboard() {
         <div>
           <h1>Journey analytics</h1>
           <p className="admSub">
-            First-party, anonymous. No IP, no cookie, no third-party script — see{" "}
-            <code>journey_events</code>.
+            First-party, anonymous 3D telemetry — see <code>journey_events</code>. Looking for recruiter IPs and downloads? View{" "}
+            <Link href="/admin/resume-activity" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+              Résumé Activity &rarr;
+            </Link>
           </p>
         </div>
         <div className="admHeadTools">

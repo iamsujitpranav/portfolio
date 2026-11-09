@@ -18,6 +18,7 @@ from .admin import router as admin_router
 from .analytics import router as analytics_router
 from .articles import router as articles_router
 from .db import JourneyEvent, Lead, get_sessionmaker, init_db
+from .resume_tracker import download_resume, router as resume_tracker_router
 
 
 @contextlib.asynccontextmanager
@@ -40,6 +41,12 @@ app.add_middleware(
 app.include_router(articles_router)
 app.include_router(admin_router)
 app.include_router(analytics_router)
+app.include_router(resume_tracker_router)
+
+# Direct fallback for /resume.pdf when requested directly through FastAPI
+@app.get("/resume.pdf")
+async def resume_pdf_direct(request: Request):
+    return await download_resume(request, ref=None, version=None, inline=False)
 
 
 # --------------------------------------------------------------------------- #
@@ -56,6 +63,7 @@ async def health():
         "admin": config.ADMIN_ENABLED,
         "admin_mfa": config.ADMIN_MFA_ENABLED,
         "analytics": config.ANALYTICS_ENABLED,
+        "resume_tracking": config.RESUME_TRACKING_ENABLED,
         "rate_limit": config.RATE_LIMIT_ENABLED,
         "model": config.ANTHROPIC_MODEL,
         # Cost controls, so a deploy can be checked without reading the env.
