@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 
 // Where the FastAPI (Python) backend runs. Overridable per environment.
-const BACKEND_URL = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  (process.env.NODE_ENV === "production" ? "http://backend:8000" : "http://127.0.0.1:8000");
+
 
 const nextConfig = {
   reactStrictMode: true,
